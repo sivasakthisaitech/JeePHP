@@ -1,0 +1,188 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+use JeePHP\Database\Migrator;
+
+require dirname(__DIR__) . '/bootstrap/app.php';
+
+$command = $argv[1] ?? 'help';
+$argument = $argv[2] ?? null;
+$root = dirname(__DIR__);
+
+try {
+    if (in_array($command, ['new', 'create'], true) && $argument !== null) {
+        assertSafeName($argument);
+        $destination = getcwd() . DIRECTORY_SEPARATOR . $argument;
+        if (file_exists($destination)) {
+            throw new RuntimeException('Folder already exists: ' . $destination);
+        }
+
+        mkdir($destination, 0775, true);
+        try {
+            foreach (['app', 'bin', 'bootstrap', 'config', 'database', 'public', 'src'] as $folder) {
+                copyDirectory($root . '/' . $folder, $destination . '/' . $folder);
+            }
+            foreach (['.env.example', '.gitignore', 'README.md', 'composer.json', 'jeep', 'jeep.bat'] as $file) {
+                if (is_file($root . '/' . $file)) {
+                    copy($root . '/' . $file, $destination . '/' . $file);
+                }
+            }
+
+            $envFile = $destination . '/.env.example';
+            $env = file_get_contents($envFile);
+            file_put_contents($envFile, preg_replace('/^APP_NAME=.*/m', 'APP_NAME=' . $argument, $env) ?? $env);
+
+            $composerFile = $destination . '/composer.json';
+            $composer = json_decode((string) file_get_contents($composerFile), true, 512, JSON_THROW_ON_ERROR);
+            $slug = strtolower((string) preg_replace('/[^A-Za-z0-9]+/', '-', $argument));
+            $composer['name'] = 'jeep/' . trim($slug, '-');
+            file_put_contents($composerFile, json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+
+            $readmeFile = $destination . '/README.md';
+            $readme = file_get_contents($readmeFile);
+            file_put_contents($readmeFile, preg_replace('/^# JeePHP 1\.0/m', '# ' . $argument, $readme, 1) ?? $readme);
+        } catch (Throwable $exception) {
+            removeDirectory($destination);
+            throw $exception;
+        }
+
+        echo 'Created ' . $argument . "\n\n";
+        echo '  cd ' . $argument . "\n";
+        echo "  composer install\n";
+        echo "  Copy .env.example to .env and set your database details.\n";
+        echo "  php jeep migrate\n";
+        exit(0);
+    }
+
+    if ($command === 'migrate') {
+        $names = (new Migrator($root . '/database/migrations'))->run();
+        echo $names === [] ? "Nothing to migrate.\n" : 'Migrated: ' . implode(', ', $names) . "\n";
+        exit(0);
+    }
+
+    if ($command === 'migrate:rollback') {
+        $names = (new Migrator($root . '/database/migrations'))->rollback();
+        echo $names === [] ? "Nothing to roll back.\n" : 'Rolled back: ' . implode(', ', $names) . "\n";
+        exit(0);
+    }
+
+    if ($command === 'make:model' && $argument !== null) {
+        assertSafeName($argument);
+        $class = studly($argument);
+        $path = $root . '/app/Models/' . $class . '.php';
+        $table = snakePlural($class);
+        writeNewFile($path, "<?php\ndeclare(strict_types=1);\n\nnamespace App\\Models;\n\nuse JeePHP\\Database\\Model;\n\nfinal class {$class} extends Model\n{\n    protected static string \$table = '{$table}';\n\n    protected array \$fillable = [];\n}\n");
+        echo 'Created app/Models/' . $class . ".php\n";
+        exit(0);
+    }
+
+    if ($command === 'make:controller' && $argument !== null) {
+        assertSafeName($argument);
+        $class = str_ends_with($argument, 'Controller') ? studly($argument) : studly($argument) . 'Controller';
+        $path = $root . '/app/Controllers/' . $class . '.php';
+        writeNewFile($path, "<?php\ndeclare(strict_types=1);\n\nnamespace App\\Controllers;\n\nuse JeePHP\\Http\\Request;\n\nfinal class {$class}\n{\n    public function index(Request \$request): string\n    {\n        return 'Ready for your code';\n    }\n}\n");
+        echo 'Created app/Controllers/' . $class . ".php\n";
+        exit(0);
+    }
+
+    if ($command === 'make:migration' && $argument !== null) {
+        $name = strtolower(preg_replace('/[^A-Za-z0-9_-]+/', '_', $argument) ?? 'migration');
+        $path = $root . '/database/migrations/' . date('Ymd_His') . '_' . trim($name, '_') . '.php';
+        $stub = "<?php\ndeclare(strict_types=1);\n\nuse JeePHP\\Database\\Migration;\n\nreturn new class implements Migration {\n    public function up(\\PDO \$database): void\n    {\n        // Add the SQL statement that applies this migration.\n    }\n\n    public function down(\\PDO \$database): void\n    {\n        // Add the SQL statement that reverses this migration.\n    }\n};\n";
+        writeNewFile($path, $stub);
+        echo 'Created database/migrations/' . basename($path) . "\n";
+        exit(0);
+    }
+
+    echo "JeePHP command line\n\n";
+    echo "  php jeep create MyApp                   Create a project in this folder\n";
+    echo "  php jeep new MyApp                      Alias for create\n";
+    echo "  php jeep migrate                         Run pending migrations\n";
+    echo "  php jeep migrate:rollback                Undo the latest migration batch\n";
+    echo "  php jeep make:model Customer             Create a model\n";
+    echo "  php jeep make:controller Customer        Create a controller\n";
+    echo "  php jeep make:migration create_customers  Create a migration\n";
+} catch (Throwable $exception) {
+    fwrite(STDERR, 'Error: ' . $exception->getMessage() . "\n");
+    exit(1);
+}
+
+function writeNewFile(string $path, string $contents): void
+{
+    if (is_file($path)) {
+        throw new RuntimeException('File already exists: ' . $path);
+    }
+    if (!is_dir(dirname($path))) {
+        mkdir(dirname($path), 0775, true);
+    }
+    file_put_contents($path, $contents);
+}
+
+function copyDirectory(string $source, string $destination): void
+{
+    if (!is_dir($source) || is_link($source)) {
+        throw new RuntimeException('Framework template folder not found: ' . $source);
+    }
+    if (!is_dir($destination)) {
+        mkdir($destination, 0775, true);
+    }
+    foreach (scandir($source) ?: [] as $name) {
+        if ($name === '.' || $name === '..' || $name === '.env' || $name === '.DS_Store' || $name === '.git' || $name === 'vendor') {
+            continue;
+        }
+        $sourcePath = $source . DIRECTORY_SEPARATOR . $name;
+        $targetPath = $destination . DIRECTORY_SEPARATOR . $name;
+        if (is_link($sourcePath)) {
+            continue;
+        }
+        if (is_dir($sourcePath)) {
+            // Avoid following a newly-created destination when it sits inside the source tree.
+            if (str_starts_with($destination . DIRECTORY_SEPARATOR, $sourcePath . DIRECTORY_SEPARATOR)) {
+                continue;
+            }
+            copyDirectory($sourcePath, $targetPath);
+            continue;
+        }
+        if (!copy($sourcePath, $targetPath)) {
+            throw new RuntimeException('Could not copy framework file: ' . $sourcePath);
+        }
+        chmod($targetPath, fileperms($sourcePath) & 0777);
+    }
+}
+
+function removeDirectory(string $path): void
+{
+    if (!is_dir($path)) {
+        return;
+    }
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST
+    );
+    foreach ($iterator as $item) {
+        $item->isDir() && !$item->isLink() ? rmdir($item->getPathname()) : unlink($item->getPathname());
+    }
+    rmdir($path);
+}
+
+function assertSafeName(string $name): void
+{
+    if (!preg_match('/^[A-Za-z][A-Za-z0-9_-]*$/', $name)) {
+        throw new InvalidArgumentException('Use letters, numbers, underscore, or hyphen in generated names.');
+    }
+}
+
+function studly(string $value): string
+{
+    return str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $value)));
+}
+
+function snakePlural(string $value): string
+{
+    $snake = strtolower((string) preg_replace('/(?<!^)[A-Z]/', '_$0', $value));
+    if (str_ends_with($snake, 'y')) {
+        return substr($snake, 0, -1) . 'ies';
+    }
+    return str_ends_with($snake, 's') ? $snake : $snake . 's';
+}

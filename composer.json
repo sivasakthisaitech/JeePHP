@@ -1,0 +1,28 @@
+{
+  "name": "sivasakthi/jeephp",
+  "description": "A small, readable PHP framework with simple database helpers.",
+  "license": "MIT",
+  "type": "project",
+  "keywords": ["jeephp", "php-framework"],
+  "require": {
+    "php": ">=8.1",
+    "ext-pdo": "*",
+    "ext-pdo_mysql": "*",
+    "ext-mbstring": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "JeePHP\\": "src/JeePHP/",
+      "App\\": "app/"
+    },
+    "files": [
+      "src/JeePHP/Support/helpers.php",
+      "app/Helpers/helpers.php"
+    ]
+  },
+  "scripts": {
+    "post-create-project-cmd": [
+      "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+    ]
+  }
+}
