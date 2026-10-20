@@ -1,9 +1,5 @@
 <?php
 declare(strict_types=1);
 
-url_remove('.php');
-
-route('/', 'HomeController@index');
-route('/contact', 'ContactController@index');
-route('/user/:id', 'UserController@show');
-route('POST /save', 'PostController@store');
+// Backward-compatible route entrypoint. Add new routes in /routes/web.php.
+require dirname(__DIR__) . '/routes/web.php';

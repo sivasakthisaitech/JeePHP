@@ -18,4 +18,5 @@ if (!Security::verifyCsrf($request)) {
 
 $router = new Router();
 require dirname(__DIR__) . '/app/routes.php';
+require dirname(__DIR__) . '/routes/api.php';
 $router->dispatch($request);

@@ -1,0 +1,11 @@
+<?php
+declare(strict_types=1);
+
+namespace JeePHP\Foundation;
+
+abstract class ServiceProvider
+{
+    public function register(): void {}
+
+    public function boot(): void {}
+}

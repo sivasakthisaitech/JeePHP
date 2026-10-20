@@ -20,7 +20,7 @@ try {
 
         mkdir($destination, 0775, true);
         try {
-            foreach (['app', 'bin', 'bootstrap', 'config', 'database', 'public', 'src'] as $folder) {
+            foreach (['app', 'bin', 'bootstrap', 'config', 'database', 'public', 'routes', 'src'] as $folder) {
                 copyDirectory($root . '/' . $folder, $destination . '/' . $folder);
             }
             foreach (['.duck.example', '.gitignore', '.htaccess', 'README.md', 'composer.json', 'jeep', 'jeep.bat', 'server.php'] as $file) {
@@ -115,6 +115,16 @@ try {
         exit(0);
     }
 
+    if (in_array($command, ['make:logic', 'make:business'], true) && $argument !== null) {
+        assertSafeName($argument);
+        $class = studly($argument);
+        $path = $root . '/app/BusinessLogic/' . $class . '.php';
+        $stub = "<?php\ndeclare(strict_types=1);\n\nnamespace App\\BusinessLogic;\n\nfinal class {$class}\n{\n    public function handle(): mixed\n    {\n        // Put reusable business rules here.\n        return null;\n    }\n}\n";
+        writeNewFile($path, $stub);
+        echo 'Created app/BusinessLogic/' . $class . ".php\n";
+        exit(0);
+    }
+
     if (in_array($command, ['make:migration', 'migrate:create', 'create-migration'], true) && $argument !== null) {
         $table = normalizeMigrationTable($argument);
         $fileName = date('Ymd_His') . '_create_' . $table . '_table.php';
@@ -122,6 +132,27 @@ try {
         $stub = "<?php\ndeclare(strict_types=1);\n\nuse JeePHP\\Database\\Migration;\n\nreturn new class implements Migration {\n    public function up(\\PDO \$database): void\n    {\n        create_table('{$table}')\n            ->column('name', 'email')\n            ->timestamps()\n            ->create();\n    }\n\n    public function down(\\PDO \$database): void\n    {\n        drop_table('{$table}');\n    }\n};\n";
         writeNewFile($path, $stub);
         echo 'Created database/migrations/' . basename($path) . "\n";
+        exit(0);
+    }
+
+    if ($command === 'make:job' && $argument !== null) {
+        assertSafeName($argument);
+        $class = studly($argument);
+        $path = $root . '/app/Jobs/' . $class . '.php';
+        $stub = "<?php\ndeclare(strict_types=1);\n\nnamespace App\\Jobs;\n\nuse JeePHP\\Jobs\\Job;\n\nfinal class {$class} implements Job\n{\n    public function handle(): void\n    {\n        // Add the work for this job here.\n    }\n}\n";
+        writeNewFile($path, $stub);
+        echo 'Created app/Jobs/' . $class . ".php\n";
+        exit(0);
+    }
+
+    if ($command === 'job:run' && $argument !== null) {
+        assertSafeName($argument);
+        $class = 'App\\Jobs\\' . studly($argument);
+        if (!class_exists($class) || !is_subclass_of($class, \JeePHP\Jobs\Job::class)) {
+            throw new RuntimeException('Job not found or does not implement JeePHP\\Jobs\\Job: ' . $class);
+        }
+        (new $class())->handle();
+        echo 'Completed job: ' . $class . "\n";
         exit(0);
     }
 
@@ -133,7 +164,10 @@ try {
     echo "  php jeep migrate:rollback                Undo the latest migration batch\n";
     echo "  php jeep make:model Customer             Create a model\n";
     echo "  php jeep make:controller Customer        Create a controller\n";
+    echo "  php jeep make:logic RegisterCustomer     Create a business-logic class\n";
     echo "  php jeep migrate:create users            Create a table migration\n";
+    echo "  php jeep make:job DailyReport            Create a job class\n";
+    echo "  php jeep job:run DailyReport             Run a job once (schedule with cron/Task Scheduler)\n";
 } catch (Throwable $exception) {
     fwrite(STDERR, 'Error: ' . $exception->getMessage() . "\n");
     exit(1);

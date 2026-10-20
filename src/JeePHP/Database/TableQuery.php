@@ -61,6 +61,28 @@ final class TableQuery
         return $this;
     }
 
+    public function whereIn(string $column, array $values): self
+    {
+        if ($values === []) {
+            $this->conditions[] = '1 = 0';
+            return $this;
+        }
+
+        $placeholders = [];
+        foreach (array_values($values) as $value) {
+            $placeholder = ':in' . count($this->bindings);
+            $placeholders[] = $placeholder;
+            $this->bindings[$placeholder] = $value;
+        }
+        $this->conditions[] = $this->quoteIdentifier($column) . ' IN (' . implode(', ', $placeholders) . ')';
+        return $this;
+    }
+
+    public function where_in(string $column, array $values): self
+    {
+        return $this->whereIn($column, $values);
+    }
+
     public function orderBy(string $column, string $direction = 'ASC'): self
     {
         $direction = strtoupper(trim($direction));
@@ -324,6 +346,7 @@ final class TableQuery
 
     private function run(string $sql, array $bindings): PDOStatement
     {
+        QueryMonitor::record($sql);
         $statement = $this->pdo->prepare($sql);
         foreach ($bindings as $key => $value) {
             $statement->bindValue($key, $value);

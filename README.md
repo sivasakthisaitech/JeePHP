@@ -1,4 +1,4 @@
-# JeePHP 1.0
+# JeePHP 2.6.0
 
 JeePHP is a small, Laravel-inspired PHP framework. It keeps a familiar application structure while using short, readable PHP for everyday database and page work.
 
@@ -58,6 +58,8 @@ php jeep make:model Product
 php jeep make:controller Product
 php jeep migrate:create products
 php jeep migrate:rollback
+php jeep make:job DailyReport
+php jeep job:run DailyReport
 ```
 
 On Windows, use `jeep.bat` in place of `php jeep`. To generate a table migration, pass only the table name:
@@ -85,19 +87,28 @@ Available helpers include `stringColumn('name', 150, false)`, `integer('age')`, 
 ```text
 app/
   Controllers/    Request handling
+  BusinessLogic/  Reusable workflows and business rules
   Helpers/        Your application's reusable functions
+  Jobs/           Background and scheduled task classes
+  Mail/           Email classes and templates
   Models/         Your database models
+  Providers/      Application startup registrations
   Views/          HTML pages
-  routes.php      URL-to-controller map
+routes/
+  web.php         Browser routes
+  api.php         API routes
 bootstrap/        Framework startup and .duck loading
-config/           Database configuration
+config/           App, database, and mail settings
 database/
   migrations/     Starter and application schema changes
+  seeders/        Development or initial data scripts
 bin/jeep          Command line tools
 public/           Web root and front controller
 src/JeePHP/
-  Database/       PDO connection, query builder, base Model
+  Database/       PDO connection, query builder, models and eager loading
+  Foundation/     Service provider base class
   Http/           Request object
+  Jobs/           Job contract
   Routing/        Router
   Security/       Session, CSRF, and response-header protections
   Support/        Built-in helper functions
@@ -356,6 +367,30 @@ $newCustomer->delete();
 
 `$fillable` protects model `insert_data()`, `create()`, and update calls from accepting fields you did not list. Primary keys are not mass-assigned by `fill()`. Use `Customer::query()` when you need the simple query builder, for example `Customer::query()->where('status', 1)->get()`.
 
+### Prevent N+1 queries
+
+Define a relationship on the model, then eager-load it with `with()`. JeePHP fetches the parent rows once and the related rows in a batched `WHERE IN` query, instead of running one related query for every row in a loop:
+
+```php
+// In Post.php
+use JeePHP\Database\RelationDefinition;
+
+public function author(): RelationDefinition
+{
+    return $this->belongsTo(User::class, 'user_id');
+}
+
+// Fetch posts and all their authors in two queries.
+$posts = Post::with('author')->where('status', 1)->get();
+foreach ($posts as $post) {
+    echo e($post->author?->name);
+}
+```
+
+For one-to-many, use `hasMany()` and load it the same way: `User::with('posts')->get()`. Reading a declared relationship without adding it to `with()` throws a helpful exception; this prevents accidental lazy-loading N+1 queries. Direct SQL/query-helper calls inside loops are still the developer's responsibility. When `.duck` has `APP_DEBUG=true`, JeePHP logs a possible N+1 warning if the same SELECT runs five or more times in one request.
+
+`with()` currently supports direct relationships (`belongsTo` and `hasMany`); nested paths such as `with('posts.author')` are not supported yet. Related rows are fetched in batches of up to 500 keys.
+
 ## Built-in helpers
 
 - `load_table('customers')` starts a query builder; it is a short alias for `table_load()`.
@@ -379,7 +414,7 @@ The starter landing page at `/` welcomes visitors to **JeePHP Version 1.0** with
 
 ## Routes, controllers, and views
 
-Add simple routes in `app/routes.php`:
+Add browser routes in `routes/web.php` and API routes in `routes/api.php`. When applying this update to an existing project, copy any custom routes from the old `app/routes.php` into `routes/web.php` before replacing that old file:
 
 ```php
 url_remove('.php');
@@ -392,7 +427,7 @@ route('POST /save', 'PostController@store');
 
 Routes without a method use `GET`. Prefix a route with `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, or `HEAD` to choose another method. A `:name` segment captures one URL part; read it with `$request->route('id')`. Controllers live in `app/Controllers/`. Views live in `app/Views/`; escape displayed values with `e($value)`. Request data is available through `$request->input('name')`, `$request->all()`, or `$request->only('name', 'email')`.
 
-`url_remove('.php')` in `app/routes.php` tells JeePHP to redirect GET/HEAD requests like `/contact.php` to `/contact`, normalize matching non-GET requests and route definitions, and remove the suffix from links built with `url('contact.php')`.
+Use `url_remove('.php')` once in `routes/web.php` to redirect GET/HEAD requests like `/contact.php` to `/contact`, normalize matching non-GET requests and route definitions, and remove the suffix from links built with `url('contact.php')`. The old `app/routes.php` file remains as a compatibility loader for `routes/web.php`.
 
 To render a view from a controller, call `load_view()` directly. It prints the view response, so the controller method can return `void`:
 
@@ -402,6 +437,23 @@ public function index(Request $request): void
     load_view('contact', ['title' => 'Contact']);
 }
 ```
+
+## Providers, business logic, jobs, and mail configuration
+
+`app/Providers/AppServiceProvider.php` is loaded from `config/app.php`. JeePHP calls every provider's `register()` method first, then every `boot()` method. Put reusable multi-step rules in `app/BusinessLogic/` and keep controllers focused on HTTP work.
+
+Create a starter business-logic class with `php jeep make:logic RegisterCustomer`. Then call it from a controller with `new App\BusinessLogic\RegisterCustomer()` and run its `handle()` method. Jobs are separate background/recurring tasks: generate with `php jeep make:job DailyReport`, run once with `php jeep job:run DailyReport`, and schedule that CLI command using your operating system's cron or Task Scheduler.
+
+Create and run a job with:
+
+```bash
+php jeep make:job DailyReport
+php jeep job:run DailyReport
+```
+
+Implement `JeePHP\Jobs\Job::handle()` in the generated class. For recurring execution, configure Linux cron or Windows Task Scheduler to run `php jeep job:run DailyReport` at the interval you need. This is a synchronous job runner, not a queue/retry service.
+
+`config/mail.php` reads SMTP values from `.duck` (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, and sender fields). A send-mail API depends on the SMTP provider and transport choice; the directory and config are prepared, but the sender integration is awaiting your confirmation.
 
 ## Built-in security
 

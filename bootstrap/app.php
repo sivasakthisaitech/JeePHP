@@ -27,4 +27,31 @@ if (is_file($configFile)) {
 
 if (getenv('APP_DEBUG') !== 'true') {
     ini_set('display_errors', '0');
+} else {
+    register_shutdown_function([\JeePHP\Database\QueryMonitor::class, 'report']);
+}
+
+$appConfig = require $root . '/config/app.php';
+$providers = $appConfig['providers'] ?? [];
+if (!is_array($providers)) {
+    throw new RuntimeException('The providers setting in config/app.php must be an array.');
+}
+
+$providerInstances = [];
+foreach ($providers as $providerClass) {
+    if (!is_string($providerClass) || !class_exists($providerClass)) {
+        throw new RuntimeException('Application service provider not found: ' . (string) $providerClass);
+    }
+    $provider = new $providerClass();
+    if (!$provider instanceof \JeePHP\Foundation\ServiceProvider) {
+        throw new RuntimeException($providerClass . ' must extend JeePHP\\Foundation\\ServiceProvider.');
+    }
+    $providerInstances[] = $provider;
+}
+
+foreach ($providerInstances as $provider) {
+    $provider->register();
+}
+foreach ($providerInstances as $provider) {
+    $provider->boot();
 }
