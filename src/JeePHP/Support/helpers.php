@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use JeePHP\Database\Database;
+use JeePHP\Database\TableSchema;
 use JeePHP\Database\TableQuery;
 use JeePHP\Http\Request;
 use JeePHP\Routing\Router;
@@ -46,6 +47,20 @@ if (!function_exists('table_load')) {
     function table_load(string $table): TableQuery
     {
         return table_connect($table);
+    }
+}
+
+if (!function_exists('create_table')) {
+    function create_table(string $table): TableSchema
+    {
+        return new TableSchema(Database::connection(), $table);
+    }
+}
+
+if (!function_exists('drop_table')) {
+    function drop_table(string $table): void
+    {
+        TableSchema::drop(Database::connection(), $table);
     }
 }
 

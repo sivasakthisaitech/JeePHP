@@ -1,1 +1,15 @@
-Extract this ZIP into your JeePHP project folder and allow overwrite. It adds route() shorthand, Controller@method actions, dynamic :id values available with $request->route("id"), sample routes/controllers, and root Apache routing with directory/source-file protections. Restart Apache after extraction. JeePHP requires PHP 8.1+; PHP 7.3 shown in your screenshot is too old.
+JeePHP 2.5.0 migration builder update
+
+This update adds a short migration command and a safe table-schema builder. Create a migration with `php jeep migrate:create users`, then define it with `create_table('users')->column(...)->create()`. XAMPP is optional for local development with `php jeep serve`; PHP 8.1+ CLI is still required.
+
+Update your existing source folder
+1. Extract this ZIP and copy/replace its JeePHP files into your existing framework repository folder.
+2. Keep your `.git` folder and local `.duck` file. Do not replace or publish credentials in `.duck`.
+3. Run `composer install` from the project folder if dependencies are missing.
+4. Create a migration using only the table name: `php jeep migrate:create users`. The filename is generated with a timestamp.
+5. Inside the new file, edit its `up()` method with `create_table('users')->column('name', 'email')->create();`; its `down()` method uses `drop_table('users');`.
+6. Run `php jeep migrate` to apply it. Run `php jeep migrate:rollback` to undo the latest batch.
+7. On Windows, use `jeep.bat migrate:create users` and the other `jeep.bat` commands.
+8. In VS Code Source Control, stage the changes, commit them, and push to `origin/main`. Create and push a new release tag only when publishing a Packagist version.
+
+`column()` creates nullable `VARCHAR(255)` fields; the primary `id` and timestamps are added by their helpers. `integer()`, `text()`, `decimal()`, `boolean()`, and `stringColumn()` support common column types. Table and column names are validated. The local development server handles JeePHP routes and files under `public/`; it is not for production. Apps still need MySQL/MariaDB to run migrations.

@@ -56,11 +56,29 @@ php jeep serve
 php jeep migrate
 php jeep make:model Product
 php jeep make:controller Product
-php jeep make:migration create_products_table
+php jeep migrate:create products
 php jeep migrate:rollback
 ```
 
-On Windows, use `jeep.bat` in place of `php jeep`. Migration files return a `JeePHP\Database\Migration` object with `up(PDO $database)` and `down(PDO $database)` methods. The starter migration creates the `customers` table. Review a migration before running it; rollback executes its `down()` method.
+On Windows, use `jeep.bat` in place of `php jeep`. To generate a table migration, pass only the table name:
+
+```bash
+php jeep migrate:create users
+```
+
+This creates a timestamped `create_users_table.php` file automatically. `php jeep make:migration users` and `php jeep create-migration users` are aliases. `composer create migrate users` is not a Composer command; Composer creates the project, and `php jeep` runs JeePHP commands.
+
+In the generated migration, define the table with a short builder. An `id` primary key is added automatically; `column()` creates nullable `VARCHAR(255)` fields:
+
+```php
+create_table('users')
+    ->column('name', 'email', 'phone')
+    ->integer('age')
+    ->timestamps()
+    ->create();
+```
+
+Available helpers include `stringColumn('name', 150, false)`, `integer('age')`, `text('bio')`, `decimal('price', 10, 2)`, `boolean('active', 1)`, and `timestamps()`. Remove a table in `down()` with `drop_table('users');`. Table and column identifiers are validated before SQL is executed. Review a migration before running it; rollback executes its `down()` method.
 
 ## Project folders
 

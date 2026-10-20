@@ -115,10 +115,11 @@ try {
         exit(0);
     }
 
-    if ($command === 'make:migration' && $argument !== null) {
-        $name = strtolower(preg_replace('/[^A-Za-z0-9_-]+/', '_', $argument) ?? 'migration');
-        $path = $root . '/database/migrations/' . date('Ymd_His') . '_' . trim($name, '_') . '.php';
-        $stub = "<?php\ndeclare(strict_types=1);\n\nuse JeePHP\\Database\\Migration;\n\nreturn new class implements Migration {\n    public function up(\\PDO \$database): void\n    {\n        // Add the SQL statement that applies this migration.\n    }\n\n    public function down(\\PDO \$database): void\n    {\n        // Add the SQL statement that reverses this migration.\n    }\n};\n";
+    if (in_array($command, ['make:migration', 'migrate:create', 'create-migration'], true) && $argument !== null) {
+        $table = normalizeMigrationTable($argument);
+        $fileName = date('Ymd_His') . '_create_' . $table . '_table.php';
+        $path = $root . '/database/migrations/' . $fileName;
+        $stub = "<?php\ndeclare(strict_types=1);\n\nuse JeePHP\\Database\\Migration;\n\nreturn new class implements Migration {\n    public function up(\\PDO \$database): void\n    {\n        create_table('{$table}')\n            ->column('name', 'email')\n            ->timestamps()\n            ->create();\n    }\n\n    public function down(\\PDO \$database): void\n    {\n        drop_table('{$table}');\n    }\n};\n";
         writeNewFile($path, $stub);
         echo 'Created database/migrations/' . basename($path) . "\n";
         exit(0);
@@ -132,7 +133,7 @@ try {
     echo "  php jeep migrate:rollback                Undo the latest migration batch\n";
     echo "  php jeep make:model Customer             Create a model\n";
     echo "  php jeep make:controller Customer        Create a controller\n";
-    echo "  php jeep make:migration create_customers  Create a migration\n";
+    echo "  php jeep migrate:create users            Create a table migration\n";
 } catch (Throwable $exception) {
     fwrite(STDERR, 'Error: ' . $exception->getMessage() . "\n");
     exit(1);
@@ -215,4 +216,18 @@ function snakePlural(string $value): string
         return substr($snake, 0, -1) . 'ies';
     }
     return str_ends_with($snake, 's') ? $snake : $snake . 's';
+}
+
+function normalizeMigrationTable(string $name): string
+{
+    $table = strtolower(trim($name));
+    $table = preg_replace('/^create_/', '', $table) ?? $table;
+    $table = preg_replace('/_table$/', '', $table) ?? $table;
+    $table = str_replace('-', '_', $table);
+
+    if (!preg_match('/^[a-z_][a-z0-9_]*$/', $table)) {
+        throw new InvalidArgumentException('Use a table name containing only letters, numbers, and underscores.');
+    }
+
+    return $table;
 }
