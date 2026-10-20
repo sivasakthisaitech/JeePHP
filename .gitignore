@@ -1,3 +1,4 @@
 /vendor/
+/.duck
 /.env
 /storage/logs/*.log

@@ -8,10 +8,10 @@ if (is_file($root . '/vendor/autoload.php')) {
     throw new RuntimeException('JeePHP dependencies are missing. Run composer install in the project folder.');
 }
 
-// Load simple KEY=value settings from .env without requiring another package.
-$envFile = $root . '/.env';
-if (is_file($envFile)) {
-    foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+// Load simple KEY=value settings from .duck without requiring another package.
+$configFile = $root . '/.duck';
+if (is_file($configFile)) {
+    foreach (file($configFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
         $line = trim($line);
         if ($line === '' || str_starts_with($line, '#') || !str_contains($line, '=')) {
             continue;

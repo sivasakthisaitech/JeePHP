@@ -11,6 +11,7 @@ abstract class Model
     protected static string $table = '';
     protected static string $primaryKey = 'id';
     protected array $fillable = [];
+    protected array $hidden = ['password'];
 
     public function __construct(protected array $attributes = []) {}
 
@@ -32,8 +33,17 @@ abstract class Model
 
     public static function create(array $data): static
     {
+        return static::insert_data($data);
+    }
+
+    /** Create and save a model using only its fillable attributes. */
+    public static function insert_data(array $data): static
+    {
         $model = new static();
         $model->fill($data);
+        if ($model->attributes === []) {
+            throw new InvalidArgumentException('No fillable model fields were provided for insert_data().');
+        }
         $model->save();
         return $model;
     }
@@ -41,7 +51,10 @@ abstract class Model
     public function fill(array $data): static
     {
         foreach ($data as $key => $value) {
-            if (in_array($key, $this->fillable, true)) {
+            if ($key !== static::$primaryKey && in_array($key, $this->fillable, true)) {
+                if (!is_scalar($value) && $value !== null) {
+                    throw new InvalidArgumentException('Model values must be scalar or null: ' . $key);
+                }
                 $this->attributes[$key] = $value;
             }
         }
@@ -83,7 +96,7 @@ abstract class Model
 
     public function toArray(): array
     {
-        return $this->attributes;
+        return array_diff_key($this->attributes, array_flip($this->hidden));
     }
 
     public function __get(string $key): mixed

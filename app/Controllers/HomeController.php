@@ -7,10 +7,8 @@ use JeePHP\Http\Request;
 
 final class HomeController
 {
-    public function index(Request $request): string
+    public function index(Request $request): void
     {
-        ob_start();
-        view('home', ['framework' => 'JeePHP']);
-        return (string) ob_get_clean();
+        load_view('home', ['framework' => 'JeePHP']);
     }
 }

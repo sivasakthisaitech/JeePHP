@@ -1,0 +1,14 @@
+JeePHP 2.4.0 local development server update
+
+This ZIP contains the complete JeePHP source plus `php jeep serve`, a preconfigured local development server. XAMPP is optional. PHP 8.1+ CLI is still required; JeePHP is a PHP framework and this command is not a PHP compiler or production web server.
+
+Update your existing source folder
+1. Extract this ZIP and copy/replace its JeePHP files into your existing framework repository folder.
+2. Keep your `.git` folder and local `.duck` file. Do not replace or publish credentials in `.duck`.
+3. Run `composer install` from the project folder if dependencies are missing.
+4. Start the app with `php jeep serve`; open http://127.0.0.1:8000. Use `php jeep serve 8080` to choose another port.
+5. On Windows, run `jeep.bat serve`. If PHP is not on PATH, add standalone PHP to PATH, or use `C:\xampp\php\php.exe jeep serve` for a standard XAMPP installation.
+6. To keep using XAMPP Apache, place the project under `htdocs` and open it through localhost as before.
+7. In VS Code Source Control, stage the changes, commit them, and push to `origin/main`. If publishing a Packagist release, create and push the `v2.4.0` tag after the commit.
+
+The local server handles JeePHP routes and files under `public/`. It is for development only. Apps that use a database still need a MySQL/MariaDB server, which can be provided by XAMPP or installed separately.

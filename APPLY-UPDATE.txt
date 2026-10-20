@@ -1,0 +1,1 @@
+Extract this ZIP into your JeePHP project folder and allow overwrite. It adds route() shorthand, Controller@method actions, dynamic :id values available with $request->route("id"), sample routes/controllers, and root Apache routing with directory/source-file protections. Restart Apache after extraction. JeePHP requires PHP 8.1+; PHP 7.3 shown in your screenshot is too old.

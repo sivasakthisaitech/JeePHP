@@ -1,6 +1,9 @@
 <?php
 declare(strict_types=1);
 
-use App\Controllers\HomeController;
+url_remove('.php');
 
-$router->get('/', [HomeController::class, 'index']);
+route('/', 'HomeController@index');
+route('/contact', 'ContactController@index');
+route('/user/:id', 'UserController@show');
+route('POST /save', 'PostController@store');

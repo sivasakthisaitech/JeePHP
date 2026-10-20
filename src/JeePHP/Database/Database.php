@@ -18,7 +18,7 @@ final class Database
 
         $config = require dirname(__DIR__, 3) . '/config/database.php';
         if ($config['database'] === '') {
-            throw new RuntimeException('Set DB_NAME in your .env file before using the database.');
+            throw new RuntimeException('Set DB_NAME in your .duck file before using the database.');
         }
 
         $dsn = sprintf(
