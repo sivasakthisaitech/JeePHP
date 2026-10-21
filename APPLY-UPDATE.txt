@@ -1,23 +1,12 @@
-JeePHP 2.6.0 N+1 and application-structure update
+JeePHP 2.7.0 Development Console update
 
-What's included
-- Model::with() eager loading for belongsTo/hasMany. Related data is fetched in batched WHERE IN queries, and unloaded declared relations throw instead of silently issuing one query per row.
-- APP_DEBUG query monitor logs repeated identical SELECTs as possible N+1 warnings.
-- Organized app folders: Providers, BusinessLogic, Jobs, Mail; root routes/web.php and routes/api.php; config/app.php and config/mail.php; database/seeders.
-- Service provider register()/boot() startup hooks.
-- Job generator/runner: php jeep make:job DailyReport and php jeep job:run DailyReport.
+1. Back up your current project.
+2. Extract JeePHP-v2.7.0-development-console.zip into the project and replace matching files. Keep your .git folder and local .duck file.
+3. Run composer dump-autoload if the new DeveloperConsole class is not found.
+4. Use APP_ENV=local and APP_DEBUG=true in .duck for development. The Console tab appears on HTML pages at the bottom-right.
+5. Set APP_ENV=production and APP_DEBUG=false on production servers.
 
-Apply the source update
-1. Back up your project. Before replacing the old app/routes.php, copy your custom route definitions into routes/web.php.
-2. Extract the ZIP into your existing JeePHP repository and replace matching files. Preserve .git and your local .duck.
-3. Run composer install if dependencies are missing.
-4. Review config/app.php and .duck; APP_DEBUG=true enables query warnings in the PHP error log.
-5. Example eager loading: Post::with('author')->where('status', 1)->get(). Define author() with $this->belongsTo(User::class, 'user_id').
-6. Create a job with php jeep make:job DailyReport; run once with php jeep job:run DailyReport. Use Linux cron or Windows Task Scheduler for recurring runs.
-7. SMTP values are prepared in .duck and config/mail.php. The mail sending transport has not been selected; choose the SMTP provider and mailer package before wiring a sending API.
-8. In VS Code Source Control, inspect the changed files, stage, commit, and push to origin/main. Publish a new tag only after choosing the package release version.
-
-Limits
-- Eager loading supports direct belongsTo and hasMany relations, not nested relation paths yet.
-- Direct queries written inside user loops can still cause N+1; the debug monitor warns on repeated SELECT patterns but does not rewrite arbitrary SQL.
-- The job command runs synchronously and is not a background queue/retry system.
+Push from VS Code
+- Open Source Control, review each file, stage the framework changes, commit, and Sync/Push.
+- Do not stage .duck or secret values.
+- Publish a new Composer release only after choosing a version, pushing its Git tag, and confirming Packagist has imported it.

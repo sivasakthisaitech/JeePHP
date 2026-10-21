@@ -28,7 +28,16 @@ final class QueryMonitor
 
         foreach (self::$selects as $sql => $count) {
             if ($count >= 5) {
-                error_log('[JeePHP query monitor] Possible N+1: the same SELECT ran ' . $count . ' times: ' . substr($sql, 0, 240));
+                $message = 'Possible N+1: the same SELECT ran ' . $count . ' times: ' . substr($sql, 0, 240);
+                if (class_exists(\JeePHP\Debug\DeveloperConsole::class)
+                    && \JeePHP\Debug\DeveloperConsole::isEnabled()) {
+                    \JeePHP\Debug\DeveloperConsole::warning(
+                        $message,
+                        'Loop-kulla ovvoru row-kum query pannina, relationship-ai Model::with() moolama eager-load pannunga.'
+                    );
+                } else {
+                    error_log('[JeePHP query monitor] ' . $message);
+                }
             }
         }
     }

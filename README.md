@@ -1,4 +1,4 @@
-# JeePHP 2.6.0
+# JeePHP 2.7.0
 
 JeePHP is a small, Laravel-inspired PHP framework. It keeps a familiar application structure while using short, readable PHP for everyday database and page work.
 
@@ -387,7 +387,7 @@ foreach ($posts as $post) {
 }
 ```
 
-For one-to-many, use `hasMany()` and load it the same way: `User::with('posts')->get()`. Reading a declared relationship without adding it to `with()` throws a helpful exception; this prevents accidental lazy-loading N+1 queries. Direct SQL/query-helper calls inside loops are still the developer's responsibility. When `.duck` has `APP_DEBUG=true`, JeePHP logs a possible N+1 warning if the same SELECT runs five or more times in one request.
+For one-to-many, use `hasMany()` and load it the same way: `User::with('posts')->get()`. Reading a declared relationship without adding it to `with()` throws a helpful exception; this prevents accidental lazy-loading N+1 queries. Direct SQL/query-helper calls inside loops are still the developer's responsibility. When `.duck` has `APP_DEBUG=true`, JeePHP reports a possible N+1 warning if the same SELECT runs five or more times in one request. In local/development mode, the warning also appears in the Developer Console tab.
 
 `with()` currently supports direct relationships (`belongsTo` and `hasMany`); nested paths such as `with('posts.author')` are not supported yet. Related rows are fetched in batches of up to 500 keys.
 
@@ -489,6 +489,12 @@ fetch('/save', {
 ```
 
 The framework also uses HTTP security headers, strict session IDs, HttpOnly and SameSite cookies, and Secure cookies over HTTPS. After a successful login, call `session_regenerate()` to prevent session fixation. The built-in `e()` helper escapes HTML output, and database query values use prepared statements.
+
+## Development Console
+
+When `.duck` contains `APP_ENV=local` or `APP_ENV=development` and `APP_DEBUG=true`, JeePHP adds a small **Console** tab to HTML pages. Click it to see PHP exceptions, JavaScript errors, rejected promises, `console.error()` messages, and possible N+1 warnings. PHP exception details include the source file and line, stack trace, and a rule-based suggestion for what to check. Suggestions help debugging but do not replace reviewing the code and verifying the fix.
+
+The detailed error screen and panel are disabled outside local/development debug mode. Before deployment, set `APP_ENV=production` and `APP_DEBUG=false`; stack traces can disclose application paths and implementation details.
 
 Security is layered: a CSRF token blocks cross-site form submissions, but no single helper can stop every attack. Continue to validate input, escape values with `e()` when displaying them, use JeePHP's prepared query methods, check user permissions on protected routes, and keep PHP and server software updated. CSRF protection is enabled for every unsafe request, so external callbacks and API clients must send a session token too; do not disable the check globally.
 

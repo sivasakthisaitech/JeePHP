@@ -1,23 +1,23 @@
-JeePHP 2.6.0 N+1 and application-structure update
+JeePHP 2.7.0 Development Console
 
 What's included
-- Model::with() eager loading for belongsTo/hasMany. Related data is fetched in batched WHERE IN queries, and unloaded declared relations throw instead of silently issuing one query per row.
-- APP_DEBUG query monitor logs repeated identical SELECTs as possible N+1 warnings.
-- Organized app folders: Providers, BusinessLogic, Jobs, Mail; root routes/web.php and routes/api.php; config/app.php and config/mail.php; database/seeders.
-- Service provider register()/boot() startup hooks.
-- Job generator/runner: php jeep make:job DailyReport and php jeep job:run DailyReport.
+- A bottom-right Console tab on HTML pages in APP_ENV=local/development with APP_DEBUG=true.
+- Captures uncaught PHP exceptions, fatal PHP errors, browser JavaScript errors, rejected promises, asset load errors, and console.error() messages.
+- PHP error page includes message, source file and line, stack trace, and rule-based debugging suggestions.
+- Possible N+1 query monitor warnings also appear inside the tab during local debug requests.
+- Debug details and the panel are disabled in production mode.
+- README and the JeePHP manual describe configuration, behavior, and production precautions.
 
 Apply the source update
-1. Back up your project. Before replacing the old app/routes.php, copy your custom route definitions into routes/web.php.
-2. Extract the ZIP into your existing JeePHP repository and replace matching files. Preserve .git and your local .duck.
-3. Run composer install if dependencies are missing.
-4. Review config/app.php and .duck; APP_DEBUG=true enables query warnings in the PHP error log.
-5. Example eager loading: Post::with('author')->where('status', 1)->get(). Define author() with $this->belongsTo(User::class, 'user_id').
-6. Create a job with php jeep make:job DailyReport; run once with php jeep job:run DailyReport. Use Linux cron or Windows Task Scheduler for recurring runs.
-7. SMTP values are prepared in .duck and config/mail.php. The mail sending transport has not been selected; choose the SMTP provider and mailer package before wiring a sending API.
-8. In VS Code Source Control, inspect the changed files, stage, commit, and push to origin/main. Publish a new tag only after choosing the package release version.
+1. Back up your project and preserve your local .duck file and .git folder.
+2. Extract the update ZIP into the JeePHP project folder and replace matching files.
+3. Run composer dump-autoload if Composer does not detect the new Debug/DeveloperConsole.php class.
+4. In .duck, use APP_ENV=local and APP_DEBUG=true to see the panel. APP_ENV=development is supported too.
+5. Open an HTML page and click Console at the bottom-right. Trigger a test PHP or JavaScript error to review the message, location, and suggestions.
+6. Before deployment, set APP_ENV=production and APP_DEBUG=false. Do not expose debug traces to public users.
+7. In VS Code Source Control, inspect, stage, commit, and push the changes. Create/push a release tag only when ready to publish the new Composer version.
 
 Limits
-- Eager loading supports direct belongsTo and hasMany relations, not nested relation paths yet.
-- Direct queries written inside user loops can still cause N+1; the debug monitor warns on repeated SELECT patterns but does not rewrite arbitrary SQL.
-- The job command runs synchronously and is not a background queue/retry system.
+- Suggestions are rule-based hints; they do not edit files or guarantee a fix.
+- JavaScript diagnostics appear in the panel running in that browser tab and are not sent to the server.
+- Debug information can reveal source paths and details; use only in private development environments.

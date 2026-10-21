@@ -25,9 +25,9 @@ if (is_file($configFile)) {
     }
 }
 
-if (getenv('APP_DEBUG') !== 'true') {
-    ini_set('display_errors', '0');
-} else {
+\JeePHP\Debug\DeveloperConsole::boot($root);
+
+if (filter_var(getenv('APP_DEBUG') ?: 'false', FILTER_VALIDATE_BOOL)) {
     register_shutdown_function([\JeePHP\Database\QueryMonitor::class, 'report']);
 }
 
