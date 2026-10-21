@@ -59,7 +59,7 @@
         <main>
             <div class="eyebrow">A SIMPLE PHP FRAMEWORK</div>
             <h1><span>WELCOME TO</span>JeePHP</h1>
-            <div class="version">VERSION <strong>1.0</strong> <span class="dim">/ FIRST RELEASE</span></div>
+            <div class="version">VERSION <strong>1.0.0</strong> <span class="dim">/ FIRST RELEASE</span></div>
             <p class="intro">Build your PHP application with clear routes, reusable models, helpful shortcuts, and database code that feels simple from the first line.</p>
             <div class="actions">
                 <a class="button" href="#quick-start">EXPLORE JEEPHP <span aria-hidden="true">→</span></a>
@@ -83,7 +83,7 @@ $customer = Customer::find(1);</code></pre>
                 <article class="feature"><b>03 / ROUTES</b><p>Connect a clear URL to the controller that handles the request.</p></article>
             </section>
         </main>
-        <footer><span>JeePHP · VERSION 1.0</span><span>SMALL STEPS. CLEAN PHP.</span></footer>
+        <footer><span>JeePHP · VERSION 1.0.0</span><span>SMALL STEPS. CLEAN PHP.</span></footer>
     </div>
     <script>
         const matrix = document.getElementById('matrix');

@@ -1,23 +1,19 @@
-JeePHP 2.7.0 Development Console
+JeePHP 1.0.0 — optional packages and version command
 
-What's included
-- A bottom-right Console tab on HTML pages in APP_ENV=local/development with APP_DEBUG=true.
-- Captures uncaught PHP exceptions, fatal PHP errors, browser JavaScript errors, rejected promises, asset load errors, and console.error() messages.
-- PHP error page includes message, source file and line, stack trace, and rule-based debugging suggestions.
-- Possible N+1 query monitor warnings also appear inside the tab during local debug requests.
-- Debug details and the panel are disabled in production mode.
-- README and the JeePHP manual describe configuration, behavior, and production precautions.
+What changed
+- Added `php jeep --version` and the source version setting in config/app.php.
+- Added `php jeep activate AuthO` for registration, login, account, logout, CSRF-protected forms, password hashing, session rotation, and sign-in attempt limits.
+- Added `php jeep activate RolesO` for roles, permissions, management routes/views, and helper APIs.
+- Added CLI bootstrap commands to assign a role and grant a permission.
+- Package activation is allowlisted, repeat-safe, stops on file conflicts, and creates migrations without applying them automatically.
 
-Apply the source update
-1. Back up your project and preserve your local .duck file and .git folder.
-2. Extract the update ZIP into the JeePHP project folder and replace matching files.
-3. Run composer dump-autoload if Composer does not detect the new Debug/DeveloperConsole.php class.
-4. In .duck, use APP_ENV=local and APP_DEBUG=true to see the panel. APP_ENV=development is supported too.
-5. Open an HTML page and click Console at the bottom-right. Trigger a test PHP or JavaScript error to review the message, location, and suggestions.
-6. Before deployment, set APP_ENV=production and APP_DEBUG=false. Do not expose debug traces to public users.
-7. In VS Code Source Control, inspect, stage, commit, and push the changes. Create/push a release tag only when ready to publish the new Composer version.
+After activation
+1. Run `composer dump-autoload`.
+2. Set the database settings in `.duck` and create the database.
+3. Run `php jeep migrate`.
+4. Create an account at `/auth/register`.
+5. If using RolesO, identify that account ID, then run `php jeep role:assign USER_ID admin` and `php jeep permission:grant admin roles.manage`.
+6. Sign in and open `/roles`.
 
-Limits
-- Suggestions are rule-based hints; they do not edit files or guarantee a fix.
-- JavaScript diagnostics appear in the panel running in that browser tab and are not sent to the server.
-- Debug information can reveal source paths and details; use only in private development environments.
+Security scope
+AuthO is a strong starting scaffold, not a promise that every possible attack is prevented. Use HTTPS, keep dependencies/server software current, review authorization at every protected route, and add verification/recovery flows when needed.

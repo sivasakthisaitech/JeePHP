@@ -1,12 +1,12 @@
-JeePHP 2.7.0 Development Console update
+JeePHP 1.0.0 source update
 
-1. Back up your current project.
-2. Extract JeePHP-v2.7.0-development-console.zip into the project and replace matching files. Keep your .git folder and local .duck file.
-3. Run composer dump-autoload if the new DeveloperConsole class is not found.
-4. Use APP_ENV=local and APP_DEBUG=true in .duck for development. The Console tab appears on HTML pages at the bottom-right.
-5. Set APP_ENV=production and APP_DEBUG=false on production servers.
+1. Back up your project and keep the `.git` folder and local `.duck` file.
+2. Extract the update archive into the JeePHP source/project folder and replace matching framework files.
+3. In VS Code Source Control, review and commit the changed files. Do not stage `.duck` or secrets.
+4. Run `php jeep --version`; it should print `JeePHP 1.0.0`.
+5. To enable optional authentication, run `php jeep activate AuthO`.
+6. To enable roles/permissions, run `php jeep activate RolesO`.
+7. Run `composer dump-autoload`, configure the database in `.duck`, and run `php jeep migrate`.
+8. For the first RolesO manager, create/sign in to an AuthO account, then run `php jeep role:assign USER_ID admin` and `php jeep permission:grant admin roles.manage`.
 
-Push from VS Code
-- Open Source Control, review each file, stage the framework changes, commit, and Sync/Push.
-- Do not stage .duck or secret values.
-- Publish a new Composer release only after choosing a version, pushing its Git tag, and confirming Packagist has imported it.
+Activation creates source files and migrations. Run migrations only after reviewing them and backing up important production data. The `v1.0.0` Git tag was already used in an earlier release; do not move or overwrite an existing tag. Choose a new immutable release tag when publishing these updates to Packagist.

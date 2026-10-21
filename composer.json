@@ -1,6 +1,6 @@
 {
   "name": "sivasakthi/jeephp",
-  "description": "A small, readable PHP framework with simple database helpers.",
+  "description": "A readable PHP framework with simple database helpers and optional AuthO and RolesO packages.",
   "license": "MIT",
   "type": "project",
   "keywords": ["jeephp", "php-framework"],

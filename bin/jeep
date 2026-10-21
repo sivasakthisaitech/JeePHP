@@ -20,7 +20,7 @@ try {
 
         mkdir($destination, 0775, true);
         try {
-            foreach (['app', 'bin', 'bootstrap', 'config', 'database', 'public', 'routes', 'src'] as $folder) {
+            foreach (['app', 'bin', 'bootstrap', 'config', 'database', 'packages', 'public', 'routes', 'src'] as $folder) {
                 copyDirectory($root . '/' . $folder, $destination . '/' . $folder);
             }
             foreach (['.duck.example', '.gitignore', '.htaccess', 'README.md', 'composer.json', 'jeep', 'jeep.bat', 'server.php'] as $file) {
@@ -42,7 +42,7 @@ try {
 
             $readmeFile = $destination . '/README.md';
             $readme = file_get_contents($readmeFile);
-            file_put_contents($readmeFile, preg_replace('/^# JeePHP 1\.0/m', '# ' . $argument, $readme, 1) ?? $readme);
+            file_put_contents($readmeFile, preg_replace('/^# JeePHP 1\.0\.0/m', '# ' . $argument, $readme, 1) ?? $readme);
         } catch (Throwable $exception) {
             removeDirectory($destination);
             throw $exception;
@@ -156,7 +156,45 @@ try {
         exit(0);
     }
 
+    if (in_array($command, ['--version', '-V', 'version'], true)) {
+        echo 'JeePHP ' . (require $root . '/config/app.php')['version'] . "\n";
+        exit(0);
+    }
+
+    if ($command === 'activate' && $argument !== null) {
+        (new \\JeePHP\\Packages\\PackageActivator($root))->activate($argument);
+        exit(0);
+    }
+
+    if ($command === 'role:assign' && isset($argv[2], $argv[3])) {
+        $userId = filter_var($argv[2], FILTER_VALIDATE_INT);
+        if ($userId === false || $userId < 1) {
+            throw new InvalidArgumentException('Usage: php jeep role:assign USER_ID ROLE_NAME');
+        }
+        assertSafeName($argv[3]);
+        if (!function_exists('assign_role')) {
+            throw new RuntimeException('Role helpers are missing. Activate RolesO and run composer dump-autoload.');
+        }
+        assign_role($userId, strtolower($argv[3]));
+        echo 'Assigned role ' . strtolower($argv[3]) . ' to user ' . $userId . ".\n";
+        exit(0);
+    }
+
+    if ($command === 'permission:grant' && isset($argv[2], $argv[3])) {
+        assertSafeName($argv[2]);
+        if (!preg_match('/^[A-Za-z][A-Za-z0-9._-]*$/', $argv[3])) {
+            throw new InvalidArgumentException('Use a valid permission name, such as roles.manage.');
+        }
+        if (!function_exists('grant_permission')) {
+            throw new RuntimeException('Role helpers are missing. Activate RolesO and run composer dump-autoload.');
+        }
+        grant_permission(strtolower($argv[2]), strtolower($argv[3]));
+        echo 'Granted ' . strtolower($argv[3]) . ' to role ' . strtolower($argv[2]) . ".\n";
+        exit(0);
+    }
+
     echo "JeePHP command line\n\n";
+    echo "  php jeep --version                     Show the framework version\n";
     echo "  php jeep create MyApp                   Create a project in this folder\n";
     echo "  php jeep new MyApp                      Alias for create\n";
     echo "  php jeep serve [port|host:port]          Run locally without Apache/XAMPP\n";
@@ -168,6 +206,10 @@ try {
     echo "  php jeep migrate:create users            Create a table migration\n";
     echo "  php jeep make:job DailyReport            Create a job class\n";
     echo "  php jeep job:run DailyReport             Run a job once (schedule with cron/Task Scheduler)\n";
+    echo "  php jeep activate AuthO                 Add authentication scaffolding\n";
+    echo "  php jeep activate RolesO                Add roles and permissions scaffolding\n";
+    echo "  php jeep role:assign 1 admin             Assign a role to a user\n";
+    echo "  php jeep permission:grant admin roles.manage  Grant a permission to a role\n";
 } catch (Throwable $exception) {
     fwrite(STDERR, 'Error: ' . $exception->getMessage() . "\n");
     exit(1);

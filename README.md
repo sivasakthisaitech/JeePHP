@@ -1,4 +1,4 @@
-# JeePHP 2.7.0
+# JeePHP 1.0.0
 
 JeePHP is a small, Laravel-inspired PHP framework. It keeps a familiar application structure while using short, readable PHP for everyday database and page work.
 
@@ -498,4 +498,27 @@ The detailed error screen and panel are disabled outside local/development debug
 
 Security is layered: a CSRF token blocks cross-site form submissions, but no single helper can stop every attack. Continue to validate input, escape values with `e()` when displaying them, use JeePHP's prepared query methods, check user permissions on protected routes, and keep PHP and server software updated. CSRF protection is enabled for every unsafe request, so external callbacks and API clients must send a session token too; do not disable the check globally.
 
-JeePHP includes routes, request handling, database query helpers, models, views, common helpers, migrations, CLI generators, and built-in request security. Authentication and authorization still need to be implemented for applications that have users or private data.
+JeePHP includes routes, request handling, database query helpers, models, views, common helpers, migrations, CLI generators, and built-in request security. Optional AuthO authentication and RolesO roles/permissions scaffolds can be activated from the CLI; see the section below.
+
+
+## Optional security packages
+
+Show the source version with `php jeep --version`. Activate built-in authentication and role/permission scaffolds from the project root:
+
+```bash
+php jeep activate AuthO
+php jeep activate RolesO
+composer dump-autoload
+php jeep migrate
+```
+
+AuthO adds registration, login, account, and logout pages. Passwords must be 12–72 bytes and use `password_hash()`/`password_verify()`. Unsafe form requests use the framework CSRF check, sessions rotate after login, and signup/sign-in attempts are limited. RolesO adds roles, permissions, user-role and role-permission tables, helpers, and a management page protected by `roles.manage`.
+
+After creating an AuthO account and applying both migrations, replace `1` with the account ID to enable the first roles manager:
+
+```bash
+php jeep role:assign 1 admin
+php jeep permission:grant admin roles.manage
+```
+
+Use `user_can('posts.publish')` or `user_has_role($userId, 'editor')` inside server-side route/controller authorization checks. Hiding a UI control does not secure a route. These packages provide a useful baseline; review your app's authorization needs, deploy over HTTPS, and add email verification/recovery flows where needed.
