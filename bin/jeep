@@ -19,6 +19,11 @@ $command = $argv[1] ?? 'help';
 $argument = $argv[2] ?? null;
 $root = dirname(__DIR__);
 
+// Keep the common Artisan-style help/list spellings on the same CLI.
+if (in_array($command, ['list', '--help', '-h'], true)) {
+    $command = 'help';
+}
+
 try {
     if (in_array($command, ['new', 'create'], true) && $argument !== null) {
         assertSafeName($argument);
@@ -32,7 +37,7 @@ try {
             foreach (['app', 'bin', 'bootstrap', 'config', 'database', 'docs', 'packages', 'public', 'routes', 'src'] as $folder) {
                 copyDirectory($root . '/' . $folder, $destination . '/' . $folder);
             }
-            foreach (['.duck.example', '.gitignore', '.htaccess', 'README.md', 'composer.json', 'jeep', 'jeep.bat', 'server.php'] as $file) {
+            foreach (['.duck.example', '.gitignore', '.htaccess', 'README.md', 'composer.json', 'artisan', 'artisan.bat', 'index.php', 'jeep', 'jeep.bat', 'server.php'] as $file) {
                 if (is_file($root . '/' . $file)) {
                     copy($root . '/' . $file, $destination . '/' . $file);
                 }
@@ -61,8 +66,8 @@ try {
         echo '  cd ' . $argument . "\n";
         echo "  composer install\n";
         echo "  Set DB_NAME, DB_USER, and DB_PASS in .duck.\n";
-        echo "  php jeep serve\n";
-        echo "  php jeep migrate\n";
+        echo "  php artisan serve\n";
+        echo "  php artisan migrate\n";
         exit(0);
     }
 
@@ -73,7 +78,7 @@ try {
         }
         if (!preg_match('/^(?:\[[0-9a-fA-F:]+\]|[A-Za-z0-9.-]+):([0-9]{1,5})$/', $address, $matches)
             || (int) $matches[1] < 1 || (int) $matches[1] > 65535) {
-            throw new InvalidArgumentException('Use php jeep serve, php jeep serve 8080, or php jeep serve 127.0.0.1:8080.');
+            throw new InvalidArgumentException('Use php artisan serve, php artisan serve 8080, or php artisan serve 127.0.0.1:8080.');
         }
 
         $public = $root . DIRECTORY_SEPARATOR . 'public';
@@ -127,7 +132,7 @@ try {
         $fields = isset($argv[3]) ? explode(',', (string) $argv[3]) : ['name', 'description'];
         $fields = array_values(array_filter(array_map('trim', $fields), static fn (string $field): bool => $field !== ''));
         $files = (new CrudGenerator($root))->generate($argument, $fields);
-        echo "CRUD module created:\n  " . implode("\n  ", $files) . "\n\nRun php jeep migrate, then open /" . snakePlural(studly($argument)) . ".\n";
+        echo "CRUD module created:\n  " . implode("\n  ", $files) . "\n\nRun php artisan migrate, then open /" . snakePlural(studly($argument)) . ".\n";
         exit(0);
     }
 
@@ -220,7 +225,7 @@ try {
         requireActivePackage($root, 'QueueO');
         $id = filter_var($argument, FILTER_VALIDATE_INT);
         if ($id === false || $id < 1) {
-            throw new InvalidArgumentException('Usage: php jeep queue:retry JOB_ID');
+            throw new InvalidArgumentException('Usage: php artisan queue:retry JOB_ID');
         }
         $statement = \JeePHP\Database\Database::connection()->prepare(
             "UPDATE jeep_jobs SET status='queued', attempts=0, available_at=UTC_TIMESTAMP(), reserved_at=NULL, failed_at=NULL, last_error=NULL WHERE id=:id AND status='failed'"
@@ -275,7 +280,7 @@ try {
         requireActivePackage($root, 'APIO');
         $userId = filter_var($argv[2], FILTER_VALIDATE_INT);
         if ($userId === false || $userId < 1) {
-            throw new InvalidArgumentException('Usage: php jeep api:token USER_ID NAME [ability1,ability2] [--expires=YYYY-MM-DD]');
+            throw new InvalidArgumentException('Usage: php artisan api:token USER_ID NAME [ability1,ability2] [--expires=YYYY-MM-DD]');
         }
         $abilities = isset($argv[4]) && !str_starts_with($argv[4], '--') ? explode(',', $argv[4]) : ['*'];
         $expires = optionValue($argv, '--expires=', '') ?: null;
@@ -289,7 +294,7 @@ try {
         $tokenId = filter_var($argv[2], FILTER_VALIDATE_INT);
         $userId = filter_var($argv[3], FILTER_VALIDATE_INT);
         if ($tokenId === false || $tokenId < 1 || $userId === false || $userId < 1) {
-            throw new InvalidArgumentException('Usage: php jeep api:revoke TOKEN_ID USER_ID');
+            throw new InvalidArgumentException('Usage: php artisan api:revoke TOKEN_ID USER_ID');
         }
         $revoked = \JeePHP\Api\ApiTokens::revoke($tokenId, $userId);
         echo $revoked ? "API token revoked.\n" : "API token not found for that user.\n";
@@ -319,7 +324,7 @@ try {
     if ($command === 'drive:status') {
         requireActivePackage($root, 'BackupO');
         $tokenPath = $root . '/storage/private/google-drive-token.json';
-        echo is_file($tokenPath) ? "Google Drive authorization is configured.\n" : "Google Drive is not connected. Run php jeep drive:connect path/to/oauth-client.json.\n";
+        echo is_file($tokenPath) ? "Google Drive authorization is configured.\n" : "Google Drive is not connected. Run php artisan drive:connect path/to/oauth-client.json.\n";
         exit(is_file($tokenPath) ? 0 : 1);
     }
 
@@ -329,13 +334,13 @@ try {
         $key = (string) ($backupConfig['encryption_key'] ?? '');
         $toDrive = in_array('--drive', $argv, true);
         if ($toDrive && $key === '') {
-            throw new RuntimeException('Drive backups must be encrypted. Run php jeep backup:key-generate and add the key to .duck first.');
+            throw new RuntimeException('Drive backups must be encrypted. Run php artisan backup:key-generate and add the key to .duck first.');
         }
         $manager = new DatabaseBackup((string) $backupConfig['directory']);
         $path = $manager->create($key !== '', $key);
         echo 'Local backup created: ' . $path . "\n";
         if ($key === '') {
-            echo "NOTICE: this backup is compressed but not encrypted. Run php jeep backup:key-generate and keep the key outside this project for encrypted backups.\n";
+            echo "NOTICE: this backup is compressed but not encrypted. Run php artisan backup:key-generate and keep the key outside this project for encrypted backups.\n";
         } else {
             echo "Backup is encrypted with BACKUP_ENCRYPTION_KEY. Keep a separate copy of that key; it cannot be recovered from the backup.\n";
         }
@@ -402,13 +407,13 @@ try {
         $path = '';
         if ($driveRequested) {
             if (!is_string($driveId) || preg_match('/^[A-Za-z0-9_-]{10,200}$/', $driveId) !== 1) {
-                throw new InvalidArgumentException('Usage: php jeep backup:restore --drive FILE_ID --force');
+                throw new InvalidArgumentException('Usage: php artisan backup:restore --drive FILE_ID --force');
             }
             BackupCrypto::validateKey($key);
         } else {
             $requested = (string) ($argv[2] ?? '');
             if ($requested === '' || str_starts_with($requested, '--')) {
-                throw new InvalidArgumentException('Usage: php jeep backup:restore BACKUP_FILE --force');
+                throw new InvalidArgumentException('Usage: php artisan backup:restore BACKUP_FILE --force');
             }
             $path = is_file($requested)
                 ? $requested
@@ -469,7 +474,7 @@ try {
     if ($command === 'role:assign' && isset($argv[2], $argv[3])) {
         $userId = filter_var($argv[2], FILTER_VALIDATE_INT);
         if ($userId === false || $userId < 1) {
-            throw new InvalidArgumentException('Usage: php jeep role:assign USER_ID ROLE_NAME');
+            throw new InvalidArgumentException('Usage: php artisan role:assign USER_ID ROLE_NAME');
         }
         assertSafeName($argv[3]);
         if (!function_exists('assign_role')) {
@@ -493,42 +498,43 @@ try {
         exit(0);
     }
 
-    echo "JeePHP command line\n\n";
-    echo "  php jeep --version                     Show the framework version\n";
-    echo "  php jeep create MyApp                   Create a project in this folder\n";
-    echo "  php jeep new MyApp                      Alias for create\n";
-    echo "  php jeep serve [port|host:port]          Run locally without Apache/XAMPP\n";
-    echo "  php jeep migrate                         Run pending migrations\n";
-    echo "  php jeep migrate:rollback                Undo the latest migration batch\n";
-    echo "  php jeep make:model Customer             Create a model\n";
-    echo "  php jeep make:controller Customer        Create a controller\n";
-    echo "  php jeep make:logic RegisterCustomer     Create a business-logic class\n";
-    echo "  php jeep migrate:create users            Create a table migration\n";
-    echo "  php jeep package:list                    List JeePHP optional packages\n";
-    echo "  php jeep activate PACKAGE                Activate a built-in package\n";
-    echo "  php jeep make:crud Product name,price     Generate a CRUD module\n";
-    echo "  php jeep make:job SendReport              Create a queueable job\n";
-    echo "  php jeep queue:work [--once]              Process background jobs\n";
-    echo "  php jeep queue:failed                     List jobs that exhausted retries\n";
-    echo "  php jeep schedule:run                     Run due scheduled jobs\n";
-    echo "  php jeep make:test UserTest               Create a test file\n";
-    echo "  php jeep test                             Run project tests\n";
-    echo "  php jeep mail:test user@example.com       Send a test email\n";
-    echo "  php jeep cache:clear                     Clear file cache entries\n";
-    echo "  php jeep log:tail [--lines=50]            Read recent application logs\n";
-    echo "  php jeep api:token 1 app users.read        Create an API token\n";
-    echo "  php jeep api:revoke TOKEN_ID USER_ID      Revoke an API token\n";
-    echo "  php jeep backup:key-generate              Generate a backup encryption key\n";
-    echo "  php jeep drive:connect oauth-client.json  Connect this CLI to Google Drive\n";
-    echo "  php jeep backup:database [--drive]         Back up MySQL/MariaDB\n";
-    echo "  php jeep backup:list [--drive]             List backups\n";
-    echo "  php jeep backup:restore FILE --force       Restore local backup after confirmation\n";
-    echo "  php jeep backup:restore --drive FILE_ID --force  Restore a Drive backup\n";
-    echo "  php jeep backup:clean --keep=7 [--drive]   Remove old backups (Drive asks first)\n";
-    echo "  php jeep backup:list --drive               List Google Drive backups\n";
-    echo "  php jeep drive:status | drive:disconnect   Check or disconnect Drive\n";
-    echo "  php jeep role:assign 1 admin             Assign a role to a user\n";
-    echo "  php jeep permission:grant admin roles.manage  Grant a permission to a role\n";
+    echo "JeePHP Artisan-style command line\n";
+    echo "Run php artisan, php artisan list, or php artisan --help to show this command list.\n\n";
+    echo "  php artisan --version                     Show the framework version\n";
+    echo "  php artisan create MyApp                   Create a project in this folder\n";
+    echo "  php artisan new MyApp                      Alias for create\n";
+    echo "  php artisan serve [port|host:port]          Run locally without Apache/XAMPP\n";
+    echo "  php artisan migrate                         Run pending migrations\n";
+    echo "  php artisan migrate:rollback                Undo the latest migration batch\n";
+    echo "  php artisan make:model Customer             Create a model\n";
+    echo "  php artisan make:controller Customer        Create a controller\n";
+    echo "  php artisan make:logic RegisterCustomer     Create a business-logic class\n";
+    echo "  php artisan migrate:create users            Create a table migration\n";
+    echo "  php artisan package:list                    List JeePHP optional packages\n";
+    echo "  php artisan activate PACKAGE                Activate a built-in package\n";
+    echo "  php artisan make:crud Product name,price     Generate a CRUD module\n";
+    echo "  php artisan make:job SendReport              Create a queueable job\n";
+    echo "  php artisan queue:work [--once]              Process background jobs\n";
+    echo "  php artisan queue:failed                     List jobs that exhausted retries\n";
+    echo "  php artisan schedule:run                     Run due scheduled jobs\n";
+    echo "  php artisan make:test UserTest               Create a test file\n";
+    echo "  php artisan test                             Run project tests\n";
+    echo "  php artisan mail:test user@example.com       Send a test email\n";
+    echo "  php artisan cache:clear                     Clear file cache entries\n";
+    echo "  php artisan log:tail [--lines=50]            Read recent application logs\n";
+    echo "  php artisan api:token 1 app users.read        Create an API token\n";
+    echo "  php artisan api:revoke TOKEN_ID USER_ID      Revoke an API token\n";
+    echo "  php artisan backup:key-generate              Generate a backup encryption key\n";
+    echo "  php artisan drive:connect oauth-client.json  Connect this CLI to Google Drive\n";
+    echo "  php artisan backup:database [--drive]         Back up MySQL/MariaDB\n";
+    echo "  php artisan backup:list [--drive]             List backups\n";
+    echo "  php artisan backup:restore FILE --force       Restore local backup after confirmation\n";
+    echo "  php artisan backup:restore --drive FILE_ID --force  Restore a Drive backup\n";
+    echo "  php artisan backup:clean --keep=7 [--drive]   Remove old backups (Drive asks first)\n";
+    echo "  php artisan backup:list --drive               List Google Drive backups\n";
+    echo "  php artisan drive:status | drive:disconnect   Check or disconnect Drive\n";
+    echo "  php artisan role:assign 1 admin             Assign a role to a user\n";
+    echo "  php artisan permission:grant admin roles.manage  Grant a permission to a role\n";
 } catch (Throwable $exception) {
     fwrite(STDERR, 'Error: ' . $exception->getMessage() . "\n");
     exit(1);
@@ -548,7 +554,7 @@ function writeNewFile(string $path, string $contents): void
 function requireActivePackage(string $root, string $name): void
 {
     if (!is_file($root . '/storage/packages/' . $name . '.active')) {
-        throw new RuntimeException('Activate this package first: php jeep activate ' . $name);
+        throw new RuntimeException('Activate this package first: php artisan activate ' . $name);
     }
 }
 

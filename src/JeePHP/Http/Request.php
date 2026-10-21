@@ -41,6 +41,18 @@ final class Request
         return $pathname . substr($path, $pathLength);
     }
 
+    public static function basePath(): string
+    {
+        $script = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+        foreach (['/public/index.php', '/index.php'] as $entryPoint) {
+            if (str_ends_with($script, $entryPoint)) {
+                return rtrim(substr($script, 0, -strlen($entryPoint)), '/');
+            }
+        }
+
+        return '';
+    }
+
     public static function capture(): self
     {
         $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
@@ -55,13 +67,9 @@ final class Request
             $path = $extensionlessPath;
         }
 
-        $script = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
-        $publicEntry = '/public/index.php';
-        if (str_ends_with($script, $publicEntry)) {
-            $basePath = substr($script, 0, -strlen($publicEntry));
-            if ($basePath !== '' && ($path === $basePath || str_starts_with($path, $basePath . '/'))) {
-                $path = substr($path, strlen($basePath)) ?: '/';
-            }
+        $basePath = self::basePath();
+        if ($basePath !== '' && ($path === $basePath || str_starts_with($path, $basePath . '/'))) {
+            $path = substr($path, strlen($basePath)) ?: '/';
         }
         $path = '/' . trim($path, '/');
         if ($path !== '/') {

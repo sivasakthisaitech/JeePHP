@@ -1,7 +1,10 @@
 JeePHP 1.0.0 — optional packages, app tooling, and Google Drive database backup
 
 What changed
-- Added `php jeep --version` and the source version setting in config/app.php.
+- Added `artisan` and `artisan.bat` as Artisan-style entry points. `php artisan`, `php artisan list`, and `php artisan --help` use the same JeePHP command runner; `php jeep` remains supported. New projects created with the CLI receive both launchers.
+- Fixed the XAMPP subfolder front controller: `/MyApp/` routes to the welcome page, `Request` strips the `/MyApp` base path for both front-controller and fallback entry points, and `url()` keeps generated links inside the project subfolder.
+- Added a root `index.php` fallback for Apache setups where root rewrite rules are unavailable; corrected `DirectoryIndex` and expanded `.htaccess` blocks for source/config/docs folders. Clean routes still require Apache `mod_rewrite` and `AllowOverride All`.
+- Added `php artisan --version` and the source version setting in config/app.php.
 - Added 15 allow-listed optional packages: AuthO, RolesO, MailO, QueueO, ScheduleO, TestO, UploadO, CacheO, APIO, CrudO, ValidateO, LogO, StorageO, BackupO, and LocaleO.
 - Added CLI commands for package activation/listing, CRUD generation, tests, mail, cache, logs, APIs, queue workers, schedules, and local development.
 - Added MySQL/MariaDB schema/data/view backup, AES-256-GCM authenticated chunk encryption, verified Google Drive Desktop OAuth/PKCE, resumable upload, listing, restore confirmation, and retention cleanup.
@@ -11,12 +14,12 @@ What changed
 - Package activation is allow-listed, stops on file conflicts, creates reviewed migration files without applying them, and prints required Composer steps.
 
 After activation
-1. Run `php jeep package:list` and activate the packages your app needs.
+1. Run `php artisan package:list` and activate the packages your app needs.
 2. Run `composer update` if a dependency was added; otherwise run `composer dump-autoload`.
-3. Set DB credentials in `.duck`, create the database, review package migrations, and run `php jeep migrate`.
+3. Set DB credentials in `.duck`, create the database, review package migrations, and run `php artisan migrate`.
 4. Create an account at `/auth/register`.
-5. If using RolesO, run `php jeep role:assign USER_ID admin` and `php jeep permission:grant admin roles.manage`, then sign in and open `/roles`.
-6. For a Drive backup, activate BackupO, generate `BACKUP_ENCRYPTION_KEY`, connect a Desktop OAuth client, then run `php jeep backup:database --drive`.
+5. If using RolesO, run `php artisan role:assign USER_ID admin` and `php artisan permission:grant admin roles.manage`, then sign in and open `/roles`.
+6. For a Drive backup, activate BackupO, generate `BACKUP_ENCRYPTION_KEY`, connect a Desktop OAuth client, then run `php artisan backup:database --drive`.
 
 Backup scope
 The dump includes MySQL/MariaDB base table schema, data, and views. It does not include triggers, stored procedures/functions, scheduled database events, database users/grants, or application files. InnoDB tables use a consistent snapshot; nontransactional tables may change during export. Test restore using a disposable database and retain the encryption key outside this project.

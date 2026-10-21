@@ -33,7 +33,7 @@ final class PackageActivator
     public function activate(string $name): void
     {
         if (!in_array($name, self::PACKAGES, true)) {
-            throw new RuntimeException('Unknown package. Run php jeep package:list to see available packages.');
+            throw new RuntimeException('Unknown package. Run php artisan package:list to see available packages.');
         }
         $manifestPath = $this->root . '/packages/' . $name . '/package.php';
         if (!is_file($manifestPath)) {
@@ -142,7 +142,7 @@ final class PackageActivator
             echo "\nNext steps:\n  composer dump-autoload\n";
         }
         if (($manifest['migration'] ?? false) === true) {
-            echo "  php jeep migrate\n";
+            echo "  php artisan migrate\n";
         }
         $this->printPackageNextSteps($name);
     }
@@ -151,20 +151,20 @@ final class PackageActivator
     {
         $steps = [
             'AuthO' => 'Open /auth/register, then /auth/login. Activate MailO to send password reset emails.',
-            'RolesO' => 'Assign a role with php jeep role:assign USER_ID admin, then grant roles.manage.',
-            'MailO' => 'Set SMTP values in .duck and send a test with php jeep mail:test EMAIL.',
-            'QueueO' => 'Create QueueableJob classes, enqueue with queue_dispatch(), and start php jeep queue:work.',
-            'ScheduleO' => 'Edit config/schedule.php and run php jeep schedule:run from your OS scheduler once a minute.',
-            'TestO' => 'Run php jeep test and create tests with php jeep make:test ExampleTest.',
+            'RolesO' => 'Assign a role with php artisan role:assign USER_ID admin, then grant roles.manage.',
+            'MailO' => 'Set SMTP values in .duck and send a test with php artisan mail:test EMAIL.',
+            'QueueO' => 'Create QueueableJob classes, enqueue with queue_dispatch(), and start php artisan queue:work.',
+            'ScheduleO' => 'Edit config/schedule.php and run php artisan schedule:run from your OS scheduler once a minute.',
+            'TestO' => 'Run php artisan test and create tests with php artisan make:test ExampleTest.',
             'UploadO' => 'Use upload_file() with MIME allow-list and a byte limit; it returns a random storage path.',
             'CacheO' => 'Use cache_remember() for time-limited results and cache_forget() when data changes.',
-            'APIO' => 'Run php jeep api:token USER_ID app-name, then send Authorization: Bearer TOKEN.',
+            'APIO' => 'Run php artisan api:token USER_ID app-name, then send Authorization: Bearer TOKEN.',
             'FrogO' => 'Open /frogo while using a local development server. FrogO only opens in local development with APP_DEBUG=true and a loopback connection.',
-            'CrudO' => 'Generate a module with php jeep make:crud Product name,price,description.',
+            'CrudO' => 'Generate a module with php artisan make:crud Product name,price,description.',
             'ValidateO' => 'Use validate($request->only(...), $rules) before any insert or update.',
             'LogO' => 'Write logs with app_log(level, message, context); secret-like context fields are redacted.',
             'StorageO' => 'Use store_file(), read_file(), delete_file(), and storage_url(); private is the default disk.',
-            'BackupO' => 'Run php jeep backup:key-generate, then php jeep drive:connect path/to/oauth-client.json.',
+            'BackupO' => 'Run php artisan backup:key-generate, then php artisan drive:connect path/to/oauth-client.json.',
             'LocaleO' => 'Use set_locale(\'ta\') and trans(\'welcome\').',
         ];
         if (isset($steps[$name])) {

@@ -1,0 +1,6 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+// The Artisan-style entry point delegates to JeePHP's shared command runner.
+require __DIR__ . '/bin/jeep';

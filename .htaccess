@@ -1,13 +1,14 @@
 Options -Indexes
-DirectoryIndex public/index.php
+DirectoryIndex index.php
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
     RewriteRule (^|/)\.(?!well-known(?:/|$)) - [F,L,NC]
-    RewriteRule ^(?:app|bin|bootstrap|config|database|src|vendor)(?:/|$) - [F,L,NC]
-    RewriteRule ^(?:\.duck(?:\..*)?|composer\.(?:json|lock)|README(?:\.md)?|jeep(?:\.bat)?)$ - [F,L,NC]
+    RewriteRule ^(?:app|bin|bootstrap|config|database|docs|packages|src|storage|tests|vendor)(?:/|$) - [F,L,NC]
+    RewriteRule ^(?:\.duck(?:\..*)?|composer\.(?:json|lock)|README(?:\.md)?|artisan(?:\.bat)?|jeep(?:\.bat)?|server\.php)$ - [F,L,NC]
 
     RewriteRule ^public/ - [L]
+    RewriteRule ^$ public/index.php [L]
     RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>

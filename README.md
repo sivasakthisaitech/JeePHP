@@ -2,7 +2,7 @@
 
 JeePHP is a small, Laravel-inspired PHP framework. It keeps a familiar application structure while using short, readable PHP for everyday database and page work.
 
-The full beginner reference is available as [DOCX](docs/JeePHP-Manual-Book-v1.0.0.docx) and [PDF](docs/JeePHP-Manual-Book-v1.0.0.pdf).
+The full beginner reference is available as [DOCX](docs/JeePHP-Manual-Book-v1.0.0.docx) and [PDF](docs/JeePHP-Manual-Book-v1.0.0.pdf). JeePHP includes an Artisan-style CLI entry point: use `php artisan` for the command list and run every JeePHP command through it. The older `php jeep` entry point remains available.
 
 ## Requirements
 
@@ -20,9 +20,9 @@ composer create-project sivasakthi/jeephp my-project-name
 cd my-project-name
 ```
 
-Composer downloads the published JeePHP project into `my-project-name` and installs it. The `.duck` file is copied from `.duck.example` after creation. Run `php jeep serve` to start it locally. Set `DB_NAME`, `DB_USER`, and `DB_PASS` in `.duck` and create a MySQL/MariaDB database only if your app uses database features.
+Composer downloads the published JeePHP project into `my-project-name` and installs it. The `.duck` file is copied from `.duck.example` after creation. Run `php artisan serve` to start it locally. Set `DB_NAME`, `DB_USER`, and `DB_PASS` in `.duck` and create a MySQL/MariaDB database only if your app uses database features.
 
-The universal `composer create-project` command works only after the JeePHP repository is public and registered on Packagist. The local `php jeep create MyApp` command below works from the JeePHP source folder.
+The universal `composer create-project` command works only after the JeePHP repository is public and registered on Packagist. The local `php artisan create MyApp` command below works from the JeePHP source folder.
 
 ## Run locally without XAMPP
 
@@ -30,47 +30,47 @@ You need PHP CLI installed; XAMPP is optional. From the project folder, run:
 
 ```bash
 composer install
-php jeep serve
+php artisan serve
 ```
 
-Open `http://127.0.0.1:8000`. Choose a different port with `php jeep serve 8080`, or bind another host with `php jeep serve 0.0.0.0:8080`.
+Open `http://127.0.0.1:8000`. Choose a different port with `php artisan serve 8080`, or bind another host with `php artisan serve 0.0.0.0:8080`.
 
-On Windows, `jeep.bat serve` runs the same command when PHP is on `PATH`. If PHP is not on `PATH`, add your standalone PHP folder to `PATH`, or run `C:\path\to\php.exe jeep serve`. XAMPP users can run `C:\xampp\php\php.exe jeep serve` if they prefer XAMPP's PHP runtime.
+On Windows, `artisan.bat serve` runs the same command when PHP is on `PATH`. If PHP is not on `PATH`, add your standalone PHP folder to `PATH`, or run `C:\path\to\php.exe artisan serve`. XAMPP users can run `C:\xampp\php\php.exe artisan serve` if they prefer XAMPP's PHP runtime. `jeep.bat` and `php jeep` remain compatible aliases.
 
 This command uses PHP's built-in development web server. It is for local development, not production hosting. PHP is still required; JeePHP does not compile PHP into a standalone executable.
 
-To keep using XAMPP Apache, place the project in `htdocs/JeePHP` and open `http://localhost/JeePHP/`. The project-root `.htaccess` routes requests into `public/` and disables directory listings. Apache must allow `.htaccess` overrides and have `mod_rewrite` enabled. For production, point the web-server document root directly to `public/` so framework source files stay outside the public web root.
+To keep using XAMPP Apache, place the project in `htdocs/MyApp` and open `http://localhost/MyApp/`. The root `index.php` fallback and project-root `.htaccess` send `/` to the welcome route. Use clean app URLs such as `/MyApp/contact`; never open `/MyApp/app/Views/` or a view file directly. If Apache shows a folder listing or the `app/Views` path, it is ignoring `.htaccess`: in `C:\xampp\apache\conf\httpd.conf`, enable `LoadModule rewrite_module modules/mod_rewrite.so` and set the `C:/xampp/htdocs` `<Directory>` block to `AllowOverride All`; restart Apache. The root `.htaccess` then blocks direct requests to framework source folders. For production, point the web-server document root directly to `public/` so framework source files stay outside the public web root.
 
-## CLI and migrations
+## Artisan-style CLI and migrations
 
 JeePHP includes a small CLI for common setup work. Run these from the project root:
 
 ```bash
-php jeep create MyApp
+php artisan create MyApp
 cd MyApp
 composer install
-php jeep serve
+php artisan serve
 ```
 
-`create` makes a fresh project folder in the current directory, creates its `.duck` config file, names the app, and stops if that folder already exists. `php jeep new MyApp` is an alias. After setting database details in `.duck`, run its starter migration. Then use the generated project's CLI for the usual commands:
+`create` makes a fresh project folder in the current directory, creates its `.duck` config file, names the app, and stops if that folder already exists. `php artisan new MyApp` is an alias. After setting database details in `.duck`, run its starter migration. Then use the generated project's CLI for the usual commands:
 
 ```bash
-php jeep migrate
-php jeep make:model Product
-php jeep make:controller Product
-php jeep migrate:create products
-php jeep migrate:rollback
-php jeep make:job DailyReport
-php jeep job:run DailyReport
+php artisan migrate
+php artisan make:model Product
+php artisan make:controller Product
+php artisan migrate:create products
+php artisan migrate:rollback
+php artisan make:job DailyReport
+php artisan job:run DailyReport
 ```
 
-On Windows, use `jeep.bat` in place of `php jeep`. To generate a table migration, pass only the table name:
+`php artisan`, `php artisan list`, and `php artisan --help` show the available commands. On Windows, use `artisan.bat` in place of `php artisan`. To generate a table migration, pass only the table name:
 
 ```bash
-php jeep migrate:create users
+php artisan migrate:create users
 ```
 
-This creates a timestamped `create_users_table.php` file automatically. `php jeep make:migration users` and `php jeep create-migration users` are aliases. `composer create migrate users` is not a Composer command; Composer creates the project, and `php jeep` runs JeePHP commands.
+This creates a timestamped `create_users_table.php` file automatically. `php artisan make:migration users` and `php artisan create-migration users` are aliases. `composer create migrate users` is not a Composer command; Composer creates the project, and `php artisan` runs JeePHP commands. The old `php jeep` alias also works.
 
 In the generated migration, define the table with a short builder. An `id` primary key is added automatically; `column()` creates nullable `VARCHAR(255)` fields:
 
@@ -104,7 +104,10 @@ config/           App, database, and mail settings
 database/
   migrations/     Starter and application schema changes
   seeders/        Development or initial data scripts
-bin/jeep          Command line tools
+index.php          XAMPP fallback entry point
+artisan           Artisan-style CLI entry point
+artisan.bat       Windows command launcher
+bin/jeep          Shared CLI implementation
 public/           Web root and front controller
 src/JeePHP/
   Database/       PDO connection, query builder, models and eager loading
@@ -402,7 +405,7 @@ For one-to-many, use `hasMany()` and load it the same way: `User::with('posts')-
 - `view('customers/list', $data)` loads a view from `app/Views/`.
 - `load_view('customers/list', $data)` loads and immediately prints a view; controllers do not need `ob_start()` or a return statement.
 - `url_remove('.php')` removes `.php` from generated links and redirects GET/HEAD requests to extensionless URLs.
-- `url('customers')` and `asset('app.css')` build URLs from `APP_URL`.
+- `url('customers')` and `asset('app.css')` use `APP_URL` when configured and detect a local project subfolder such as `/MyApp` when the default local URL does not match.
 - `redirect('customers')` redirects to a JeePHP URL.
 - `session('user_id')` reads a session value; `session('user_id', 5)` sets it.
 - `flash('message', 'Saved')` stores a one-time message; `flash('message')` reads it and clears it.
@@ -444,27 +447,27 @@ public function index(Request $request): void
 
 `app/Providers/AppServiceProvider.php` is loaded from `config/app.php`. JeePHP calls every provider's `register()` method first, then every `boot()` method. Put reusable multi-step rules in `app/BusinessLogic/` and keep controllers focused on HTTP work.
 
-Create a starter business-logic class with `php jeep make:logic RegisterCustomer`. Then call it from a controller with `new App\BusinessLogic\RegisterCustomer()` and run its `handle()` method. `config/app.php` loads service providers in two passes: all `register()` methods, followed by all `boot()` methods.
+Create a starter business-logic class with `php artisan make:logic RegisterCustomer`. Then call it from a controller with `new App\BusinessLogic\RegisterCustomer()` and run its `handle()` method. `config/app.php` loads service providers in two passes: all `register()` methods, followed by all `boot()` methods.
 
 For one synchronous job, use:
 
 ```bash
-php jeep make:job DailyReport
-php jeep job:run DailyReport
+php artisan make:job DailyReport
+php artisan job:run DailyReport
 ```
 
 For background queue processing, activate QueueO and apply its migration:
 
 ```bash
-php jeep activate QueueO
+php artisan activate QueueO
 composer dump-autoload
-php jeep migrate
-php jeep make:job SendReceipt
+php artisan migrate
+php artisan make:job SendReceipt
 ```
 
-Queue jobs implement `JeePHP\Jobs\QueueableJob`. Dispatch with `queue_dispatch('SendReceipt', ['order_id' => 42])`, start a worker with `php jeep queue:work`, inspect exhausted jobs with `php jeep queue:failed`, and retry one with `php jeep queue:retry JOB_ID`. The worker reserves jobs, retries failures up to each job's limit, and records failed jobs. Run a worker under your hosting provider's process manager for production.
+Queue jobs implement `JeePHP\Jobs\QueueableJob`. Dispatch with `queue_dispatch('SendReceipt', ['order_id' => 42])`, start a worker with `php artisan queue:work`, inspect exhausted jobs with `php artisan queue:failed`, and retry one with `php artisan queue:retry JOB_ID`. The worker reserves jobs, retries failures up to each job's limit, and records failed jobs. Run a worker under your hosting provider's process manager for production.
 
-For recurring work, activate ScheduleO, edit `config/schedule.php`, then have Linux cron or Windows Task Scheduler run `php jeep schedule:run` once a minute. `every_seconds` accepts 60 seconds through one year. If QueueO is active, due tasks are queued; otherwise they run in the scheduler process. Make sure a production queue worker is running when scheduled jobs are queued.
+For recurring work, activate ScheduleO, edit `config/schedule.php`, then have Linux cron or Windows Task Scheduler run `php artisan schedule:run` once a minute. `every_seconds` accepts 60 seconds through one year. If QueueO is active, due tasks are queued; otherwise they run in the scheduler process. Make sure a production queue worker is running when scheduled jobs are queued.
 
 ## Built-in security
 
@@ -480,14 +483,14 @@ When `.duck` contains `APP_ENV=local` or `APP_ENV=development` and `APP_DEBUG=tr
 
 ## Optional packages
 
-Use `php jeep package:list` to see packages, then activate only what the application uses. Activation installs scaffold files where applicable, appends routes/helpers, records a local activation marker, and never runs migrations automatically:
+Use `php artisan package:list` to see packages, then activate only what the application uses. Activation installs scaffold files where applicable, appends routes/helpers, records a local activation marker, and never runs migrations automatically:
 
 ```bash
-php jeep package:list
-php jeep activate AuthO
-php jeep activate RolesO
+php artisan package:list
+php artisan activate AuthO
+php artisan activate RolesO
 composer dump-autoload
-php jeep migrate
+php artisan migrate
 ```
 
 Package dependencies: RolesO requires AuthO; UploadO requires StorageO; CrudO requires ValidateO. MailO adds `phpmailer/phpmailer`; BackupO requires PHP cURL, OpenSSL, and zlib. When a package changes `composer.json`, run `composer update` and enable the required PHP extensions. For packages without Composer dependencies, `composer dump-autoload` is enough. Review the CLI's printed next steps after activation.
@@ -498,13 +501,13 @@ Package dependencies: RolesO requires AuthO; UploadO requires StorageO; CrudO re
 | RolesO | Roles and permissions tables, management page, checks such as `user_can()` |
 | MailO | SMTP mail through PHPMailer and `send_mail()` |
 | QueueO | Database-backed queue, retries, failed jobs, `queue_dispatch()` |
-| ScheduleO | `config/schedule.php` and `php jeep schedule:run` |
-| TestO | Lightweight test runner and `php jeep make:test` |
+| ScheduleO | `config/schedule.php` and `php artisan schedule:run` |
+| TestO | Lightweight test runner and `php artisan make:test` |
 | UploadO | MIME-checked upload helper with random filenames and size limit |
 | CacheO | File cache helpers, including `cache_remember()` |
 | APIO | Hashed, expiring API tokens with abilities and bearer authentication |
 | FrogO | Local browser API tester at `/frogo`, with response details and error suggestions |
-| CrudO | `php jeep make:crud` scaffold for model/controller/views/routes/migration |
+| CrudO | `php artisan make:crud` scaffold for model/controller/views/routes/migration |
 | ValidateO | Detailed validation rule reference; validator itself is built in |
 | LogO | JSON log files with secret-like context redaction |
 | StorageO | Private-by-default local file storage helpers |
@@ -518,14 +521,14 @@ Generated package files belong to that app's source tree. If a package is alread
 Activate BackupO, then install the package requirements:
 
 ```bash
-php jeep activate BackupO
+php artisan activate BackupO
 composer update
 ```
 
 Create a 256-bit encryption key and add the printed value to `.duck` as `BACKUP_ENCRYPTION_KEY=...`. Keep a separate copy outside this project; without the exact key an encrypted backup cannot be restored. Configure Google Cloud with the Drive API enabled and create an OAuth client of type **Desktop app**. Run:
 
 ```bash
-php jeep drive:connect C:\path\to\oauth-client.json
+php artisan drive:connect C:\path\to\oauth-client.json
 ```
 
 Open the URL shown by the CLI, approve access, and wait for the local callback. JeePHP uses OAuth with PKCE and stores the client/token in the ignored `storage/private/` directory. It asks only for access to files JeePHP creates in its Drive folder.
@@ -533,21 +536,21 @@ Open the URL shown by the CLI, approve access, and wait for the local callback. 
 Create a local encrypted backup and upload it to Drive:
 
 ```bash
-php jeep backup:database --drive
-php jeep backup:list --drive
-php jeep drive:status
+php artisan backup:database --drive
+php artisan backup:list --drive
+php artisan drive:status
 ```
 
-The CLI also supports local backup listing (`php jeep backup:list`), restore (`php jeep backup:restore BACKUP_FILE --force`), Drive restore (`php jeep backup:restore --drive FILE_ID --force`), retention cleanup (`php jeep backup:clean --keep=7`), Drive retention cleanup (`php jeep backup:clean --keep=7 --drive`), and disconnect (`php jeep drive:disconnect`). Restore requires typing `RESTORE`; Drive cleanup asks for `DELETE`. A backup is stored locally even after upload.
+The CLI also supports local backup listing (`php artisan backup:list`), restore (`php artisan backup:restore BACKUP_FILE --force`), Drive restore (`php artisan backup:restore --drive FILE_ID --force`), retention cleanup (`php artisan backup:clean --keep=7`), Drive retention cleanup (`php artisan backup:clean --keep=7 --drive`), and disconnect (`php artisan drive:disconnect`). Restore requires typing `RESTORE`; Drive cleanup asks for `DELETE`. A backup is stored locally even after upload.
 
 Backups contain MySQL/MariaDB base-table schemas, rows, and views. InnoDB tables use a consistent snapshot; nontransactional tables may change during the dump. Triggers, stored procedures/functions, events, user grants, and tables created after the backup are not included. Restore replaces tables and views present in the backup, so check `.duck` and `DB_NAME` before confirming. Local files are encrypted only when `BACKUP_ENCRYPTION_KEY` is set; without it, they are compressed SQL and must be protected as sensitive data. Google Drive uploads always require encryption.
 
 ## API tokens
 
-After activating APIO and running `php jeep migrate`, create a scoped token:
+After activating APIO and running `php artisan migrate`, create a scoped token:
 
 ```bash
-php jeep api:token 1 mobile-app users.read,users.write
+php artisan api:token 1 mobile-app users.read,users.write
 ```
 
 Send the printed token only in an HTTPS `Authorization: Bearer TOKEN` header. In an API controller, require the specific ability before accessing data:
@@ -557,16 +560,16 @@ $apiUser = api_require('users.read');
 if ($apiUser === null) return;
 ```
 
-Store the token securely and revoke it with `php jeep api:revoke TOKEN_ID USER_ID`. Only its SHA-256 hash is stored in the database. Avoid wildcard `*` abilities unless the client truly needs every permission.
+Store the token securely and revoke it with `php artisan api:revoke TOKEN_ID USER_ID`. Only its SHA-256 hash is stored in the database. Avoid wildcard `*` abilities unless the client truly needs every permission.
 
 ## Test APIs with FrogO
 
 Activate FrogO to add a browser-based API workbench:
 
 ```bash
-php jeep activate FrogO
+php artisan activate FrogO
 composer dump-autoload
-php jeep serve
+php artisan serve
 ```
 
 Open `http://127.0.0.1:8000/frogo`. The request field starts at `/frogo/ping`, a local health-check endpoint you can send immediately. Then choose an HTTP method, enter your own route such as `/api/users`, add headers (including an APIO Bearer token when needed), and enter a JSON or raw request body. FrogO shows the status, duration, response size, body, and response headers. For common HTTP failures it explains the likely cause and what to check next. Request bodies and response previews are limited to 2 MB to keep the page responsive.
@@ -595,13 +598,13 @@ $welcome = trans('welcome', ['app' => 'JeePHP']);
 
 UploadO usage: `upload_file('photo', ['image/jpeg', 'image/png'], 2_000_000, 'avatars')`. It checks PHP upload status, size, and detected MIME type, then creates a random safe filename. Do not allow arbitrary HTML, SVG, or executable files in public storage.
 
-TestO is a small no-dependency runner, not PHPUnit. Use `php jeep make:test Example` and `php jeep test`. CrudO can generate a starter module with `php jeep make:crud Product name,price,description`; review its controller, validation, routes, and migration before running `php jeep migrate`.
+TestO is a small no-dependency runner, not PHPUnit. Use `php artisan make:test Example` and `php artisan test`. CrudO can generate a starter module with `php artisan make:crud Product name,price,description`; review its controller, validation, routes, and migration before running `php artisan migrate`.
 
 ## Composer release note
 
 The source `config/app.php` version remains `1.0.0` as requested. Composer installs published tags; pushing to Git `main` does not update projects made with `composer create-project`. The earlier `v1.0.0` and `v1.1.0` tags are already used, so publish this source update with a new immutable tag such as `v1.2.0` and update Packagist before expecting Composer to install these packages.
 
-`config/mail.php` reads SMTP values from `.duck`. Activate MailO to install the PHPMailer transport and the `send_mail()` helper. After activation run `composer update`, set `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, and sender fields in `.duck`, then test with `php jeep mail:test user@example.com`.
+`config/mail.php` reads SMTP values from `.duck`. Activate MailO to install the PHPMailer transport and the `send_mail()` helper. After activation run `composer update`, set `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, and sender fields in `.duck`, then test with `php artisan mail:test user@example.com`.
 
 ## Built-in security
 
@@ -651,13 +654,13 @@ JeePHP includes routes, request handling, database query helpers, models, views,
 
 ## Optional security packages
 
-Show the source version with `php jeep --version`. Activate built-in authentication and role/permission scaffolds from the project root:
+Show the source version with `php artisan --version`. Activate built-in authentication and role/permission scaffolds from the project root:
 
 ```bash
-php jeep activate AuthO
-php jeep activate RolesO
+php artisan activate AuthO
+php artisan activate RolesO
 composer dump-autoload
-php jeep migrate
+php artisan migrate
 ```
 
 AuthO adds registration, login, account, and logout pages. Passwords must be 12â€“72 bytes and use `password_hash()`/`password_verify()`. Unsafe form requests use the framework CSRF check, sessions rotate after login, and signup/sign-in attempts are limited. RolesO adds roles, permissions, user-role and role-permission tables, helpers, and a management page protected by `roles.manage`.
@@ -665,8 +668,8 @@ AuthO adds registration, login, account, and logout pages. Passwords must be 12â
 After creating an AuthO account and applying both migrations, replace `1` with the account ID to enable the first roles manager:
 
 ```bash
-php jeep role:assign 1 admin
-php jeep permission:grant admin roles.manage
+php artisan role:assign 1 admin
+php artisan permission:grant admin roles.manage
 ```
 
 Use `user_can('posts.publish')` or `user_has_role($userId, 'editor')` inside server-side route/controller authorization checks. Hiding a UI control does not secure a route. These packages provide a useful baseline; review your app's authorization needs, deploy over HTTPS, and add email verification/recovery flows where needed.

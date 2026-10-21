@@ -190,7 +190,36 @@ if (!function_exists('load_view')) {
 if (!function_exists('url')) {
     function url(string $path = ''): string
     {
-        $base = rtrim(getenv('APP_URL') ?: '', '/');
+        $configured = rtrim(trim(getenv('APP_URL') ?: ''), '/');
+        $basePath = Request::basePath();
+        $base = $configured !== '' ? $configured : $basePath;
+
+        $requestHost = strtolower(trim((string) ($_SERVER['HTTP_HOST'] ?? '')));
+        $configuredHost = strtolower((string) (parse_url($configured, PHP_URL_HOST) ?: ''));
+        if ($configuredHost !== '' && $requestHost !== '') {
+            $localHost = static function (string $host): bool {
+                $host = strtolower(trim($host));
+                $host = preg_replace('/:\\d+$/', '', $host) ?? $host;
+                $host = trim($host, '[]');
+                return in_array($host, ['localhost', '127.0.0.1', '::1'], true)
+                    || str_ends_with($host, '.localhost');
+            };
+
+            if ($localHost($configuredHost) && $localHost($requestHost)) {
+                $configuredPort = parse_url($configured, PHP_URL_PORT);
+                $configuredAuthority = $configuredHost . ($configuredPort ? ':' . $configuredPort : '');
+                if ($configuredAuthority !== $requestHost) {
+                    // Ignore the development-server default when Apache serves this app in htdocs/MyApp.
+                    $base = $basePath;
+                } else {
+                    $configuredPath = rtrim((string) (parse_url($configured, PHP_URL_PATH) ?: ''), '/');
+                    if ($configuredPath === '') {
+                        $base = $configured . $basePath;
+                    }
+                }
+            }
+        }
+
         $path = Request::removeConfiguredUrlExtension(ltrim($path, '/'));
         return $base . '/' . $path;
     }
