@@ -3,6 +3,15 @@
 declare(strict_types=1);
 
 use JeePHP\Database\Migrator;
+use JeePHP\Backup\BackupCrypto;
+use JeePHP\Backup\DatabaseBackup;
+use JeePHP\Backup\GoogleDriveBackup;
+use JeePHP\Jobs\Queue;
+use JeePHP\Jobs\QueueableJob;
+use JeePHP\Packages\CrudGenerator;
+use JeePHP\Packages\PackageActivator;
+use JeePHP\Schedule\Scheduler;
+use JeePHP\Testing\TestRunner;
 
 require dirname(__DIR__) . '/bootstrap/app.php';
 
@@ -20,7 +29,7 @@ try {
 
         mkdir($destination, 0775, true);
         try {
-            foreach (['app', 'bin', 'bootstrap', 'config', 'database', 'packages', 'public', 'routes', 'src'] as $folder) {
+            foreach (['app', 'bin', 'bootstrap', 'config', 'database', 'docs', 'packages', 'public', 'routes', 'src'] as $folder) {
                 copyDirectory($root . '/' . $folder, $destination . '/' . $folder);
             }
             foreach (['.duck.example', '.gitignore', '.htaccess', 'README.md', 'composer.json', 'jeep', 'jeep.bat', 'server.php'] as $file) {
@@ -96,6 +105,13 @@ try {
         exit(0);
     }
 
+    if ($command === 'package:list') {
+        foreach (PackageActivator::available($root) as $package) {
+            echo str_pad($package['name'], 12) . ($package['active'] ? 'active' : 'available') . "\n";
+        }
+        exit(0);
+    }
+
     if ($command === 'make:model' && $argument !== null) {
         assertSafeName($argument);
         $class = studly($argument);
@@ -103,6 +119,15 @@ try {
         $table = snakePlural($class);
         writeNewFile($path, "<?php\ndeclare(strict_types=1);\n\nnamespace App\\Models;\n\nuse JeePHP\\Database\\Model;\n\nfinal class {$class} extends Model\n{\n    protected static string \$table = '{$table}';\n\n    protected array \$fillable = [];\n}\n");
         echo 'Created app/Models/' . $class . ".php\n";
+        exit(0);
+    }
+
+    if ($command === 'make:crud' && $argument !== null) {
+        requireActivePackage($root, 'CrudO');
+        $fields = isset($argv[3]) ? explode(',', (string) $argv[3]) : ['name', 'description'];
+        $fields = array_values(array_filter(array_map('trim', $fields), static fn (string $field): bool => $field !== ''));
+        $files = (new CrudGenerator($root))->generate($argument, $fields);
+        echo "CRUD module created:\n  " . implode("\n  ", $files) . "\n\nRun php jeep migrate, then open /" . snakePlural(studly($argument)) . ".\n";
         exit(0);
     }
 
@@ -139,19 +164,294 @@ try {
         assertSafeName($argument);
         $class = studly($argument);
         $path = $root . '/app/Jobs/' . $class . '.php';
-        $stub = "<?php\ndeclare(strict_types=1);\n\nnamespace App\\Jobs;\n\nuse JeePHP\\Jobs\\Job;\n\nfinal class {$class} implements Job\n{\n    public function handle(): void\n    {\n        // Add the work for this job here.\n    }\n}\n";
+        $stub = "<?php\ndeclare(strict_types=1);\n\nnamespace App\\Jobs;\n\nuse JeePHP\\Jobs\\QueueableJob;\n\nfinal class {$class} implements QueueableJob\n{\n    public function handle(array \$payload = []): void\n    {\n        // Add the work for this job here. Values are available in \$payload.\n    }\n}\n";
         writeNewFile($path, $stub);
         echo 'Created app/Jobs/' . $class . ".php\n";
+        exit(0);
+    }
+
+    if ($command === 'make:test' && $argument !== null) {
+        requireActivePackage($root, 'TestO');
+        assertSafeName($argument);
+        $name = str_ends_with($argument, 'Test') ? $argument : $argument . 'Test';
+        $path = $root . '/tests/' . $name . '.php';
+        $stub = "<?php\ndeclare(strict_types=1);\n\nuse JeePHP\\Testing\\TestCase;\n\nreturn static function (TestCase \$test): void {\n    \$test->same(4, 2 + 2);\n    \$test->assertTrue(true);\n};\n";
+        writeNewFile($path, $stub);
+        echo 'Created tests/' . $name . ".php\n";
+        exit(0);
+    }
+
+    if ($command === 'test') {
+        requireActivePackage($root, 'TestO');
+        exit((new TestRunner())->run($root . '/tests'));
+    }
+
+    if ($command === 'queue:work') {
+        requireActivePackage($root, 'QueueO');
+        $once = in_array('--once', $argv, true);
+        $sleepSeconds = max(1, min(30, (int) optionValue($argv, '--sleep=', '2')));
+        echo $once ? "Running one queued job...\n" : "JeePHP queue worker running. Press Ctrl+C to stop.\n";
+        do {
+            $worked = Queue::workOne();
+            if ($worked) {
+                echo '[' . date('H:i:s') . "] Processed a queued job.\n";
+            } elseif ($once) {
+                echo "No ready jobs.\n";
+            } else {
+                sleep($sleepSeconds);
+            }
+        } while (!$once);
+        exit(0);
+    }
+
+    if ($command === 'queue:failed') {
+        requireActivePackage($root, 'QueueO');
+        $failed = Queue::failed();
+        if ($failed === []) {
+            echo "No failed jobs.\n";
+        }
+        foreach ($failed as $job) {
+            echo '#' . $job['id'] . ' ' . $job['job_class'] . ' (' . $job['attempts'] . ' tries) ' . $job['last_error'] . "\n";
+        }
+        exit(0);
+    }
+
+    if ($command === 'queue:retry' && $argument !== null) {
+        requireActivePackage($root, 'QueueO');
+        $id = filter_var($argument, FILTER_VALIDATE_INT);
+        if ($id === false || $id < 1) {
+            throw new InvalidArgumentException('Usage: php jeep queue:retry JOB_ID');
+        }
+        $statement = \JeePHP\Database\Database::connection()->prepare(
+            "UPDATE jeep_jobs SET status='queued', attempts=0, available_at=UTC_TIMESTAMP(), reserved_at=NULL, failed_at=NULL, last_error=NULL WHERE id=:id AND status='failed'"
+        );
+        $statement->execute(['id' => $id]);
+        echo $statement->rowCount() === 1 ? "Job queued for retry.\n" : "Failed job not found.\n";
+        exit($statement->rowCount() === 1 ? 0 : 1);
+    }
+
+    if ($command === 'schedule:run') {
+        requireActivePackage($root, 'ScheduleO');
+        $count = (new Scheduler($root))->run();
+        echo 'Scheduled jobs started: ' . $count . "\n";
+        exit(0);
+    }
+
+    if ($command === 'mail:test' && $argument !== null) {
+        requireActivePackage($root, 'MailO');
+        send_mail($argument, 'JeePHP SMTP test', 'emails/welcome', ['name' => 'JeePHP developer']);
+        echo 'Test email sent to ' . $argument . ".\n";
+        exit(0);
+    }
+
+    if ($command === 'cache:clear') {
+        requireActivePackage($root, 'CacheO');
+        $removed = (new \JeePHP\Cache\FileCache($root . '/storage/cache'))->clear();
+        echo 'Cache entries removed: ' . $removed . "\n";
+        exit(0);
+    }
+
+    if ($command === 'log:tail') {
+        requireActivePackage($root, 'LogO');
+        $lines = max(1, min(500, (int) optionValue($argv, '--lines=', '50')));
+        $files = glob($root . '/storage/logs/*.log') ?: [];
+        rsort($files);
+        $content = '';
+        foreach ($files as $file) {
+            $part = file($file, FILE_IGNORE_NEW_LINES);
+            if (is_array($part)) {
+                $content = implode("\n", array_merge($part, $content === '' ? [] : explode("\n", $content)));
+            }
+            if (substr_count($content, "\n") >= $lines) {
+                break;
+            }
+        }
+        $output = array_slice(explode("\n", $content), -$lines);
+        echo $output === [''] ? "No log records.\n" : implode("\n", $output) . "\n";
+        exit(0);
+    }
+
+    if ($command === 'api:token' && isset($argv[2], $argv[3])) {
+        requireActivePackage($root, 'APIO');
+        $userId = filter_var($argv[2], FILTER_VALIDATE_INT);
+        if ($userId === false || $userId < 1) {
+            throw new InvalidArgumentException('Usage: php jeep api:token USER_ID NAME [ability1,ability2] [--expires=YYYY-MM-DD]');
+        }
+        $abilities = isset($argv[4]) && !str_starts_with($argv[4], '--') ? explode(',', $argv[4]) : ['*'];
+        $expires = optionValue($argv, '--expires=', '') ?: null;
+        $token = \JeePHP\Api\ApiTokens::create($userId, $argv[3], $abilities, $expires);
+        echo "Copy this token now. JeePHP stores only its hash:\n" . $token . "\n";
+        exit(0);
+    }
+
+    if ($command === 'api:revoke' && isset($argv[2], $argv[3])) {
+        requireActivePackage($root, 'APIO');
+        $tokenId = filter_var($argv[2], FILTER_VALIDATE_INT);
+        $userId = filter_var($argv[3], FILTER_VALIDATE_INT);
+        if ($tokenId === false || $tokenId < 1 || $userId === false || $userId < 1) {
+            throw new InvalidArgumentException('Usage: php jeep api:revoke TOKEN_ID USER_ID');
+        }
+        $revoked = \JeePHP\Api\ApiTokens::revoke($tokenId, $userId);
+        echo $revoked ? "API token revoked.\n" : "API token not found for that user.\n";
+        exit($revoked ? 0 : 1);
+    }
+
+    if ($command === 'backup:key-generate') {
+        requireActivePackage($root, 'BackupO');
+        echo "Add this line to .duck and keep a separate copy of the key:\n\nBACKUP_ENCRYPTION_KEY=" . BackupCrypto::generateKey() . "\n";
+        exit(0);
+    }
+
+    if ($command === 'drive:connect' && $argument !== null) {
+        requireActivePackage($root, 'BackupO');
+        $backupConfig = require $root . '/config/backup.php';
+        (new GoogleDriveBackup($root . '/storage/private', (string) $backupConfig['drive_folder_name'], (int) $backupConfig['chunk_bytes']))->connect($argument);
+        exit(0);
+    }
+
+    if ($command === 'drive:disconnect') {
+        requireActivePackage($root, 'BackupO');
+        $backupConfig = require $root . '/config/backup.php';
+        (new GoogleDriveBackup($root . '/storage/private', (string) $backupConfig['drive_folder_name'], (int) $backupConfig['chunk_bytes']))->disconnect();
+        exit(0);
+    }
+
+    if ($command === 'drive:status') {
+        requireActivePackage($root, 'BackupO');
+        $tokenPath = $root . '/storage/private/google-drive-token.json';
+        echo is_file($tokenPath) ? "Google Drive authorization is configured.\n" : "Google Drive is not connected. Run php jeep drive:connect path/to/oauth-client.json.\n";
+        exit(is_file($tokenPath) ? 0 : 1);
+    }
+
+    if ($command === 'backup:database') {
+        requireActivePackage($root, 'BackupO');
+        $backupConfig = require $root . '/config/backup.php';
+        $key = (string) ($backupConfig['encryption_key'] ?? '');
+        $toDrive = in_array('--drive', $argv, true);
+        if ($toDrive && $key === '') {
+            throw new RuntimeException('Drive backups must be encrypted. Run php jeep backup:key-generate and add the key to .duck first.');
+        }
+        $manager = new DatabaseBackup((string) $backupConfig['directory']);
+        $path = $manager->create($key !== '', $key);
+        echo 'Local backup created: ' . $path . "\n";
+        if ($key === '') {
+            echo "NOTICE: this backup is compressed but not encrypted. Run php jeep backup:key-generate and keep the key outside this project for encrypted backups.\n";
+        } else {
+            echo "Backup is encrypted with BACKUP_ENCRYPTION_KEY. Keep a separate copy of that key; it cannot be recovered from the backup.\n";
+        }
+        if ($toDrive) {
+            $drive = new GoogleDriveBackup($root . '/storage/private', (string) $backupConfig['drive_folder_name'], (int) $backupConfig['chunk_bytes']);
+            $file = $drive->upload($path);
+            echo 'Uploaded to Google Drive: ' . ($file['name'] ?? basename($path)) . "\n";
+            echo 'Drive file ID: ' . $file['id'] . "\n";
+        }
+        exit(0);
+    }
+
+    if ($command === 'backup:list') {
+        requireActivePackage($root, 'BackupO');
+        $backupConfig = require $root . '/config/backup.php';
+        if (in_array('--drive', $argv, true)) {
+            $drive = new GoogleDriveBackup($root . '/storage/private', (string) $backupConfig['drive_folder_name'], (int) $backupConfig['chunk_bytes']);
+            foreach ($drive->list() as $file) {
+                echo ($file['createdTime'] ?? '') . '  ' . ($file['name'] ?? '') . '  ID=' . ($file['id'] ?? '') . "\n";
+            }
+        } else {
+            $files = (new DatabaseBackup((string) $backupConfig['directory']))->localBackups();
+            foreach ($files as $file) {
+                echo basename($file) . '  ' . number_format(filesize($file)) . " bytes\n";
+            }
+            if ($files === []) {
+                echo "No local backups found.\n";
+            }
+        }
+        exit(0);
+    }
+
+    if ($command === 'backup:clean') {
+        requireActivePackage($root, 'BackupO');
+        $backupConfig = require $root . '/config/backup.php';
+        $keep = (int) optionValue($argv, '--keep=', '7');
+        if ($keep < 1) {
+            throw new InvalidArgumentException('Use --keep=1 or a larger number.');
+        }
+        if (in_array('--drive', $argv, true)) {
+            echo 'This permanently deletes Google Drive backups beyond the newest ' . $keep . '. Type DELETE to continue: ';
+            if (trim((string) fgets(STDIN)) !== 'DELETE') {
+                throw new RuntimeException('Backup cleanup cancelled.');
+            }
+        }
+        $local = (new DatabaseBackup((string) $backupConfig['directory']))->prune($keep);
+        echo 'Local backups removed: ' . $local . "\n";
+        if (in_array('--drive', $argv, true)) {
+            $drive = new GoogleDriveBackup($root . '/storage/private', (string) $backupConfig['drive_folder_name'], (int) $backupConfig['chunk_bytes']);
+            echo 'Drive backups removed: ' . $drive->prune($keep) . "\n";
+        }
+        exit(0);
+    }
+
+    if ($command === 'backup:restore') {
+        requireActivePackage($root, 'BackupO');
+        if (!in_array('--force', $argv, true)) {
+            throw new InvalidArgumentException('Restore replaces database tables. Add --force and type RESTORE when prompted.');
+        }
+        $backupConfig = require $root . '/config/backup.php';
+        $key = (string) ($backupConfig['encryption_key'] ?? '');
+        $driveRequested = in_array('--drive', $argv, true);
+        $driveId = $driveRequested ? ($argv[3] ?? '') : '';
+        $path = '';
+        if ($driveRequested) {
+            if (!is_string($driveId) || preg_match('/^[A-Za-z0-9_-]{10,200}$/', $driveId) !== 1) {
+                throw new InvalidArgumentException('Usage: php jeep backup:restore --drive FILE_ID --force');
+            }
+            BackupCrypto::validateKey($key);
+        } else {
+            $requested = (string) ($argv[2] ?? '');
+            if ($requested === '' || str_starts_with($requested, '--')) {
+                throw new InvalidArgumentException('Usage: php jeep backup:restore BACKUP_FILE --force');
+            }
+            $path = is_file($requested)
+                ? $requested
+                : rtrim((string) $backupConfig['directory'], '/\\') . '/' . basename($requested);
+            if (!is_file($path) || !is_readable($path)) {
+                throw new RuntimeException('Backup file not found: ' . $requested);
+            }
+            if (!str_ends_with($path, '.sql.gz') && !str_ends_with($path, '.sql.gz.enc')) {
+                throw new InvalidArgumentException('Restore expects a .sql.gz or .sql.gz.enc JeePHP backup.');
+            }
+            if (str_ends_with($path, '.enc')) {
+                BackupCrypto::validateKey($key);
+            }
+        }
+        echo "WARNING: this replaces existing tables and their data. Type RESTORE to continue: ";
+        $confirmation = trim((string) fgets(STDIN));
+        if ($confirmation !== 'RESTORE') {
+            throw new RuntimeException('Restore cancelled.');
+        }
+        if ($driveRequested) {
+            $path = rtrim((string) $backupConfig['directory'], '/\\') . '/drive-restore-' . bin2hex(random_bytes(6)) . '.sql.gz.enc';
+            $drive = new GoogleDriveBackup($root . '/storage/private', (string) $backupConfig['drive_folder_name'], (int) $backupConfig['chunk_bytes']);
+            $drive->download($driveId, $path);
+        }
+        $count = (new DatabaseBackup((string) $backupConfig['directory']))->restore($path, $key);
+        echo 'Restore completed. SQL statements applied: ' . $count . "\n";
         exit(0);
     }
 
     if ($command === 'job:run' && $argument !== null) {
         assertSafeName($argument);
         $class = 'App\\Jobs\\' . studly($argument);
-        if (!class_exists($class) || !is_subclass_of($class, \JeePHP\Jobs\Job::class)) {
-            throw new RuntimeException('Job not found or does not implement JeePHP\\Jobs\\Job: ' . $class);
+        if (!class_exists($class)) {
+            throw new RuntimeException('Job class not found: ' . $class);
         }
-        (new $class())->handle();
+        $job = new $class();
+        if ($job instanceof QueueableJob) {
+            $job->handle([]);
+        } elseif ($job instanceof \JeePHP\Jobs\Job) {
+            $job->handle();
+        } else {
+            throw new RuntimeException('Job must implement JeePHP\\Jobs\\Job or QueueableJob: ' . $class);
+        }
         echo 'Completed job: ' . $class . "\n";
         exit(0);
     }
@@ -162,7 +462,7 @@ try {
     }
 
     if ($command === 'activate' && $argument !== null) {
-        (new \\JeePHP\\Packages\\PackageActivator($root))->activate($argument);
+        (new PackageActivator($root))->activate($argument);
         exit(0);
     }
 
@@ -204,10 +504,29 @@ try {
     echo "  php jeep make:controller Customer        Create a controller\n";
     echo "  php jeep make:logic RegisterCustomer     Create a business-logic class\n";
     echo "  php jeep migrate:create users            Create a table migration\n";
-    echo "  php jeep make:job DailyReport            Create a job class\n";
-    echo "  php jeep job:run DailyReport             Run a job once (schedule with cron/Task Scheduler)\n";
-    echo "  php jeep activate AuthO                 Add authentication scaffolding\n";
-    echo "  php jeep activate RolesO                Add roles and permissions scaffolding\n";
+    echo "  php jeep package:list                    List JeePHP optional packages\n";
+    echo "  php jeep activate PACKAGE                Activate a built-in package\n";
+    echo "  php jeep make:crud Product name,price     Generate a CRUD module\n";
+    echo "  php jeep make:job SendReport              Create a queueable job\n";
+    echo "  php jeep queue:work [--once]              Process background jobs\n";
+    echo "  php jeep queue:failed                     List jobs that exhausted retries\n";
+    echo "  php jeep schedule:run                     Run due scheduled jobs\n";
+    echo "  php jeep make:test UserTest               Create a test file\n";
+    echo "  php jeep test                             Run project tests\n";
+    echo "  php jeep mail:test user@example.com       Send a test email\n";
+    echo "  php jeep cache:clear                     Clear file cache entries\n";
+    echo "  php jeep log:tail [--lines=50]            Read recent application logs\n";
+    echo "  php jeep api:token 1 app users.read        Create an API token\n";
+    echo "  php jeep api:revoke TOKEN_ID USER_ID      Revoke an API token\n";
+    echo "  php jeep backup:key-generate              Generate a backup encryption key\n";
+    echo "  php jeep drive:connect oauth-client.json  Connect this CLI to Google Drive\n";
+    echo "  php jeep backup:database [--drive]         Back up MySQL/MariaDB\n";
+    echo "  php jeep backup:list [--drive]             List backups\n";
+    echo "  php jeep backup:restore FILE --force       Restore local backup after confirmation\n";
+    echo "  php jeep backup:restore --drive FILE_ID --force  Restore a Drive backup\n";
+    echo "  php jeep backup:clean --keep=7 [--drive]   Remove old backups (Drive asks first)\n";
+    echo "  php jeep backup:list --drive               List Google Drive backups\n";
+    echo "  php jeep drive:status | drive:disconnect   Check or disconnect Drive\n";
     echo "  php jeep role:assign 1 admin             Assign a role to a user\n";
     echo "  php jeep permission:grant admin roles.manage  Grant a permission to a role\n";
 } catch (Throwable $exception) {
@@ -224,6 +543,23 @@ function writeNewFile(string $path, string $contents): void
         mkdir(dirname($path), 0775, true);
     }
     file_put_contents($path, $contents);
+}
+
+function requireActivePackage(string $root, string $name): void
+{
+    if (!is_file($root . '/storage/packages/' . $name . '.active')) {
+        throw new RuntimeException('Activate this package first: php jeep activate ' . $name);
+    }
+}
+
+function optionValue(array $arguments, string $prefix, string $default): string
+{
+    foreach ($arguments as $argument) {
+        if (is_string($argument) && str_starts_with($argument, $prefix)) {
+            return substr($argument, strlen($prefix));
+        }
+    }
+    return $default;
 }
 
 function copyDirectory(string $source, string $destination): void

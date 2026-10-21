@@ -75,6 +75,12 @@ final class Security
             return false;
         }
 
+        // A valid, scoped Bearer token is the API equivalent of a browser's
+        // session-bound CSRF token. Keep this exception limited to /api URLs.
+        if (self::hasValidApiBearer($request)) {
+            return true;
+        }
+
         self::startSession();
         $knownToken = $_SESSION[self::TOKEN_KEY] ?? null;
         $submitted = $request->input('_token');
@@ -115,5 +121,20 @@ final class Security
         return isset($_SERVER['HTTPS'])
             && $_SERVER['HTTPS'] !== ''
             && strtolower((string) $_SERVER['HTTPS']) !== 'off';
+    }
+
+    private static function hasValidApiBearer(Request $request): bool
+    {
+        if (($request->path !== '/api' && !str_starts_with($request->path, '/api/'))
+            || !is_file(dirname(__DIR__, 3) . '/storage/packages/APIO.active')) {
+            return false;
+        }
+        $header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+        if (!is_string($header) || preg_match('/^Bearer\s+(.+)$/i', trim($header), $match) !== 1) {
+            return false;
+        }
+
+        $class = \JeePHP\Api\ApiTokens::class;
+        return class_exists($class) && $class::authenticate(trim($match[1])) !== null;
     }
 }

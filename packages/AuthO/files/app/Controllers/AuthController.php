@@ -37,6 +37,12 @@ final class AuthController
             load_view('auth/register', ['error' => 'Enter a valid name and email, and a password with 12–72 bytes.']);
             return;
         }
+        $requireVerification = filter_var(getenv('AUTH_REQUIRE_EMAIL_VERIFICATION') ?: 'false', FILTER_VALIDATE_BOOL);
+        if ($requireVerification && !function_exists('send_mail')) {
+            http_response_code(503);
+            load_view('auth/register', ['error' => 'Email verification is enabled. Activate MailO and configure SMTP first.']);
+            return;
+        }
 
         $registerLimit['count']++;
         session('auth_register_limit', $registerLimit);
@@ -54,6 +60,21 @@ final class AuthController
             'failed_attempts' => 0,
             'locked_until' => null,
         ]);
+        if ($requireVerification) {
+            $token = bin2hex(random_bytes(32));
+            table_connect('auth_email_verifications')->where('user_id', (int) $id)->delete();
+            table_connect('auth_email_verifications')->insert([
+                'user_id' => (int) $id,
+                'token_hash' => hash('sha256', $token),
+                'expires_at' => gmdate('Y-m-d H:i:s', time() + 86400),
+            ]);
+            send_mail($email, 'Verify your email address', 'emails.verify-email', [
+                'name' => $name,
+                'verificationUrl' => url('auth/email/verify/' . $token),
+            ]);
+            load_view('auth/verification-sent');
+            return;
+        }
         Security::regenerateSession();
         session('auth_user_id', (int) $id);
         redirect('auth/account');
@@ -91,6 +112,12 @@ final class AuthController
             : '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.';
         $passwordMatches = password_verify($password, $passwordHash);
         if (!$locked && is_array($user) && $passwordMatches) {
+            if (filter_var(getenv('AUTH_REQUIRE_EMAIL_VERIFICATION') ?: 'false', FILTER_VALIDATE_BOOL)
+                && empty($user['email_verified_at'])) {
+                http_response_code(403);
+                load_view('auth/login', ['error' => 'Verify your email address before signing in.']);
+                return;
+            }
             table_connect('auth_users')->where('id', $user['id'])->update(['failed_attempts' => 0, 'locked_until' => null]);
             Security::regenerateSession();
             session('auth_user_id', (int) $user['id']);
@@ -125,5 +152,120 @@ final class AuthController
         Security::regenerateSession();
         session('auth_user_id', null);
         redirect('auth/login');
+    }
+
+    public function forgotPassword(Request $request): void
+    {
+        if ($request->method === 'GET') {
+            load_view('auth/forgot-password');
+            return;
+        }
+        $limit = session('auth_reset_limit');
+        $now = time();
+        if (!is_array($limit) || ($limit['until'] ?? 0) <= $now) {
+            $limit = ['count' => 0, 'until' => $now + 3600];
+        }
+        if (($limit['count'] ?? 0) >= 3) {
+            http_response_code(429);
+            load_view('auth/forgot-password', ['message' => 'If the account exists, a reset link will be sent.']);
+            return;
+        }
+        $email = $request->input('email', '');
+        $email = is_string($email) ? strtolower(trim($email)) : '';
+        $limit['count']++;
+        session('auth_reset_limit', $limit);
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) !== false && function_exists('send_mail')) {
+            $user = table_connect('auth_users')->where('email', $email)->first();
+            if (is_array($user)) {
+                $token = bin2hex(random_bytes(32));
+                table_connect('auth_password_resets')->where('email', $email)->delete();
+                table_connect('auth_password_resets')->insert([
+                    'email' => $email,
+                    'token_hash' => hash('sha256', $token),
+                    'expires_at' => gmdate('Y-m-d H:i:s', $now + 3600),
+                ]);
+                try {
+                    send_mail($email, 'Reset your password', 'emails.password-reset', [
+                        'name' => $user['name'],
+                        'resetUrl' => url('auth/password/reset/' . $token),
+                    ]);
+                } catch (\Throwable $error) {
+                    if (function_exists('app_log')) {
+                        app_log('error', 'Password reset email could not be sent.', ['email' => $email, 'error' => $error->getMessage()]);
+                    }
+                }
+            }
+        }
+        load_view('auth/forgot-password', ['message' => 'If the account exists, a reset link will be sent.']);
+    }
+
+    public function resetPassword(Request $request): void
+    {
+        $token = $request->route('token', '');
+        if (!is_string($token) || preg_match('/^[a-f0-9]{64}$/', $token) !== 1) {
+            http_response_code(404);
+            echo 'Reset link not found or expired.';
+            return;
+        }
+        $record = table_connect('auth_password_resets')->where('token_hash', hash('sha256', $token))->first();
+        if (!is_array($record) || strtotime((string) $record['expires_at'] . ' UTC') <= time()) {
+            http_response_code(410);
+            echo 'Reset link not found or expired.';
+            return;
+        }
+        if ($request->method === 'GET') {
+            load_view('auth/reset-password', ['token' => $token]);
+            return;
+        }
+        $password = $request->input('password', '');
+        $confirmation = $request->input('password_confirmation', '');
+        if (!is_string($password) || strlen($password) < 12 || strlen($password) > 72 || !is_string($confirmation) || !hash_equals($password, $confirmation)) {
+            http_response_code(422);
+            load_view('auth/reset-password', ['token' => $token, 'error' => 'Use a 12–72 byte password and enter it the same way twice.']);
+            return;
+        }
+        $consume = \JeePHP\Database\Database::connection()->prepare(
+            'DELETE FROM auth_password_resets WHERE id = :id AND expires_at > UTC_TIMESTAMP()'
+        );
+        $consume->execute(['id' => $record['id']]);
+        if ($consume->rowCount() !== 1) {
+            http_response_code(410);
+            echo 'Reset link not found or expired.';
+            return;
+        }
+        table_connect('auth_users')->where('email', $record['email'])->update([
+            'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+            'failed_attempts' => 0,
+            'locked_until' => null,
+        ]);
+        session('auth_reset_limit', null);
+        load_view('auth/login', ['message' => 'Password changed. You can sign in now.']);
+    }
+
+    public function verifyEmail(Request $request): void
+    {
+        $token = $request->route('token', '');
+        if (!is_string($token) || preg_match('/^[a-f0-9]{64}$/', $token) !== 1) {
+            http_response_code(404);
+            echo 'Verification link not found or expired.';
+            return;
+        }
+        $record = table_connect('auth_email_verifications')->where('token_hash', hash('sha256', $token))->first();
+        if (!is_array($record) || strtotime((string) $record['expires_at'] . ' UTC') <= time()) {
+            http_response_code(410);
+            echo 'Verification link not found or expired.';
+            return;
+        }
+        $consume = \JeePHP\Database\Database::connection()->prepare(
+            'DELETE FROM auth_email_verifications WHERE id = :id AND expires_at > UTC_TIMESTAMP()'
+        );
+        $consume->execute(['id' => $record['id']]);
+        if ($consume->rowCount() !== 1) {
+            http_response_code(410);
+            echo 'Verification link not found or expired.';
+            return;
+        }
+        table_connect('auth_users')->where('id', $record['user_id'])->update(['email_verified_at' => gmdate('Y-m-d H:i:s')]);
+        load_view('auth/login', ['message' => 'Email verified. You can sign in now.']);
     }
 }

@@ -1,19 +1,25 @@
-JeePHP 1.0.0 — optional packages and version command
+JeePHP 1.0.0 — optional packages, app tooling, and Google Drive database backup
 
 What changed
 - Added `php jeep --version` and the source version setting in config/app.php.
-- Added `php jeep activate AuthO` for registration, login, account, logout, CSRF-protected forms, password hashing, session rotation, and sign-in attempt limits.
-- Added `php jeep activate RolesO` for roles, permissions, management routes/views, and helper APIs.
-- Added CLI bootstrap commands to assign a role and grant a permission.
-- Package activation is allowlisted, repeat-safe, stops on file conflicts, and creates migrations without applying them automatically.
+- Added 15 allow-listed optional packages: AuthO, RolesO, MailO, QueueO, ScheduleO, TestO, UploadO, CacheO, APIO, CrudO, ValidateO, LogO, StorageO, BackupO, and LocaleO.
+- Added CLI commands for package activation/listing, CRUD generation, tests, mail, cache, logs, APIs, queue workers, schedules, and local development.
+- Added MySQL/MariaDB schema/data/view backup, AES-256-GCM authenticated chunk encryption, verified Google Drive Desktop OAuth/PKCE, resumable upload, listing, restore confirmation, and retention cleanup.
+- Fixed activation for metadata-only packages such as BackupO, ScheduleO, and TestO. Drive retention cleanup now removes only JeePHP encrypted database backup files.
+- API bearer tokens are stored as SHA-256 hashes, support expirations and abilities, and are limited to `/api/` routes for CSRF bypass; API controllers still need `api_require()` authorization checks.
+- Private app uploads and OAuth/backup/cache/log files are excluded from Git. Public storage blocks script and active-content file extensions.
+- Package activation is allow-listed, stops on file conflicts, creates reviewed migration files without applying them, and prints required Composer steps.
 
 After activation
-1. Run `composer dump-autoload`.
-2. Set the database settings in `.duck` and create the database.
-3. Run `php jeep migrate`.
+1. Run `php jeep package:list` and activate the packages your app needs.
+2. Run `composer update` if a dependency was added; otherwise run `composer dump-autoload`.
+3. Set DB credentials in `.duck`, create the database, review package migrations, and run `php jeep migrate`.
 4. Create an account at `/auth/register`.
-5. If using RolesO, identify that account ID, then run `php jeep role:assign USER_ID admin` and `php jeep permission:grant admin roles.manage`.
-6. Sign in and open `/roles`.
+5. If using RolesO, run `php jeep role:assign USER_ID admin` and `php jeep permission:grant admin roles.manage`, then sign in and open `/roles`.
+6. For a Drive backup, activate BackupO, generate `BACKUP_ENCRYPTION_KEY`, connect a Desktop OAuth client, then run `php jeep backup:database --drive`.
 
-Security scope
-AuthO is a strong starting scaffold, not a promise that every possible attack is prevented. Use HTTPS, keep dependencies/server software current, review authorization at every protected route, and add verification/recovery flows when needed.
+Backup scope
+The dump includes MySQL/MariaDB base table schema, data, and views. It does not include triggers, stored procedures/functions, scheduled database events, database users/grants, or application files. InnoDB tables use a consistent snapshot; nontransactional tables may change during export. Test restore using a disposable database and retain the encryption key outside this project.
+
+Release note
+`config/app.php` continues to report 1.0.0 as requested. The earlier `v1.0.0` and `v1.1.0` tags are already used; publish this source with a new immutable tag such as `v1.2.0` rather than moving an existing tag.

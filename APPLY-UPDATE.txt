@@ -1,4 +1,4 @@
-JeePHP 1.0.0 source update
+JeePHP 1.0.0 source update — optional packages and Google Drive backup
 
 1. Back up your project and keep the `.git` folder and local `.duck` file.
 2. Extract the update archive into the JeePHP source/project folder and replace matching framework files.
@@ -6,7 +6,10 @@ JeePHP 1.0.0 source update
 4. Run `php jeep --version`; it should print `JeePHP 1.0.0`.
 5. To enable optional authentication, run `php jeep activate AuthO`.
 6. To enable roles/permissions, run `php jeep activate RolesO`.
-7. Run `composer dump-autoload`, configure the database in `.duck`, and run `php jeep migrate`.
-8. For the first RolesO manager, create/sign in to an AuthO account, then run `php jeep role:assign USER_ID admin` and `php jeep permission:grant admin roles.manage`.
+7. Run `php jeep package:list`; activate only the packages you need. Package dependencies are shown by the command and in README.md.
+8. If a package changes `composer.json`, run `composer update`; otherwise run `composer dump-autoload`.
+9. Configure the database in `.duck`, review generated migrations, then run `php jeep migrate`.
+10. For the first RolesO manager, create/sign in to an AuthO account, then run `php jeep role:assign USER_ID admin` and `php jeep permission:grant admin roles.manage`.
+11. For Google Drive backups, follow the “Database backup and Google Drive” section of README.md and the complete manual book.
 
-Activation creates source files and migrations. Run migrations only after reviewing them and backing up important production data. The `v1.0.0` Git tag was already used in an earlier release; do not move or overwrite an existing tag. Choose a new immutable release tag when publishing these updates to Packagist.
+Activation creates source files and migrations. Run migrations only after reviewing them and backing up important production data. This source still reports version `1.0.0` as requested. The earlier `v1.0.0` and `v1.1.0` Git tags are already used; do not move or overwrite them. Publish these changes using a new immutable release tag such as `v1.2.0` and update Packagist before running `composer create-project` from the new release.

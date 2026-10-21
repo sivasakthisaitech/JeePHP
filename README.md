@@ -2,6 +2,8 @@
 
 JeePHP is a small, Laravel-inspired PHP framework. It keeps a familiar application structure while using short, readable PHP for everyday database and page work.
 
+The full beginner reference is available as [DOCX](docs/JeePHP-Manual-Book-v1.0.0.docx) and [PDF](docs/JeePHP-Manual-Book-v1.0.0.pdf).
+
 ## Requirements
 
 - PHP 8.1 or later
@@ -406,7 +408,7 @@ For one-to-many, use `hasMany()` and load it the same way: `User::with('posts')-
 - `flash('message', 'Saved')` stores a one-time message; `flash('message')` reads it and clears it.
 - `safe_form()` returns the hidden security token field; `csrf_field()` remains as an alias.
 - `csrf_token()` returns the token for JavaScript requests; `session_regenerate()` rotates the session and token after login.
-- `validate($input, ['name' => 'required|min:2', 'email' => 'email'])` returns an errors array. Supported rules: `required`, `email`, `min:n`, and `max:n`.
+- `validate($input, $rules)` returns field errors. Rules include `required`, `nullable`, `email`, `url`, `numeric`, `integer`, `boolean`, `phone`, `date`, `min:n`, `max:n`, `confirmed`, `same:field`, `in:a,b`, `regex:pattern`, `unique:table,column[,ignoreId]`, and `exists:table,column`.
 - `old('name')` gets a value from `_old_input` in the session.
 - Add your own functions in `app/Helpers/helpers.php`; Composer loads that file automatically.
 
@@ -438,22 +440,153 @@ public function index(Request $request): void
 }
 ```
 
-## Providers, business logic, jobs, and mail configuration
+## Providers, business logic, and background jobs
 
 `app/Providers/AppServiceProvider.php` is loaded from `config/app.php`. JeePHP calls every provider's `register()` method first, then every `boot()` method. Put reusable multi-step rules in `app/BusinessLogic/` and keep controllers focused on HTTP work.
 
-Create a starter business-logic class with `php jeep make:logic RegisterCustomer`. Then call it from a controller with `new App\BusinessLogic\RegisterCustomer()` and run its `handle()` method. Jobs are separate background/recurring tasks: generate with `php jeep make:job DailyReport`, run once with `php jeep job:run DailyReport`, and schedule that CLI command using your operating system's cron or Task Scheduler.
+Create a starter business-logic class with `php jeep make:logic RegisterCustomer`. Then call it from a controller with `new App\BusinessLogic\RegisterCustomer()` and run its `handle()` method. `config/app.php` loads service providers in two passes: all `register()` methods, followed by all `boot()` methods.
 
-Create and run a job with:
+For one synchronous job, use:
 
 ```bash
 php jeep make:job DailyReport
 php jeep job:run DailyReport
 ```
 
-Implement `JeePHP\Jobs\Job::handle()` in the generated class. For recurring execution, configure Linux cron or Windows Task Scheduler to run `php jeep job:run DailyReport` at the interval you need. This is a synchronous job runner, not a queue/retry service.
+For background queue processing, activate QueueO and apply its migration:
 
-`config/mail.php` reads SMTP values from `.duck` (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, and sender fields). A send-mail API depends on the SMTP provider and transport choice; the directory and config are prepared, but the sender integration is awaiting your confirmation.
+```bash
+php jeep activate QueueO
+composer dump-autoload
+php jeep migrate
+php jeep make:job SendReceipt
+```
+
+Queue jobs implement `JeePHP\Jobs\QueueableJob`. Dispatch with `queue_dispatch('SendReceipt', ['order_id' => 42])`, start a worker with `php jeep queue:work`, inspect exhausted jobs with `php jeep queue:failed`, and retry one with `php jeep queue:retry JOB_ID`. The worker reserves jobs, retries failures up to each job's limit, and records failed jobs. Run a worker under your hosting provider's process manager for production.
+
+For recurring work, activate ScheduleO, edit `config/schedule.php`, then have Linux cron or Windows Task Scheduler run `php jeep schedule:run` once a minute. `every_seconds` accepts 60 seconds through one year. If QueueO is active, due tasks are queued; otherwise they run in the scheduler process. Make sure a production queue worker is running when scheduled jobs are queued.
+
+## Built-in security
+
+JeePHP checks every `POST`, `PUT`, `PATCH`, and `DELETE` browser request before it reaches a route. Add `<?= safe_form() ?>` inside every state-changing form. JavaScript browser requests can send `csrf_token()` in `X-CSRF-TOKEN`. The framework also uses secure session settings and response headers; `e()` escapes HTML output, and query helper values use PDO prepared statements.
+
+When APIO is active, a valid `Authorization: Bearer ...` token can authenticate machine requests under `/api/` without a browser session token. Keep each API controller protected with `api_require('ability.name')`; the exemption does not grant authorization by itself. GET routes remain safe, and API endpoints should not change data with GET.
+
+`<safe>` is not a PHP tag and cannot automatically protect arbitrary code. Security still depends on input validation, output escaping, route authorization, HTTPS, updated dependencies, and keeping secrets out of Git. The built-in protections are useful defaults, not a guarantee against every attack.
+
+## Development Console
+
+When `.duck` contains `APP_ENV=local` or `APP_ENV=development` and `APP_DEBUG=true`, JeePHP adds a **Console** tab at the bottom-right of HTML pages. It displays PHP exceptions, browser JavaScript errors, unhandled rejections, `console.error()` messages, and possible N+1 warnings. Exception details include a source file, line, trace, and a suggested check. Treat the suggestion as a debugging hint and verify the change. Set `APP_ENV=production` and `APP_DEBUG=false` before deployment.
+
+## Optional packages
+
+Use `php jeep package:list` to see packages, then activate only what the application uses. Activation installs scaffold files where applicable, appends routes/helpers, records a local activation marker, and never runs migrations automatically:
+
+```bash
+php jeep package:list
+php jeep activate AuthO
+php jeep activate RolesO
+composer dump-autoload
+php jeep migrate
+```
+
+Package dependencies: RolesO requires AuthO; UploadO requires StorageO; CrudO requires ValidateO. MailO adds `phpmailer/phpmailer`; BackupO requires PHP cURL, OpenSSL, and zlib. When a package changes `composer.json`, run `composer update` and enable the required PHP extensions. For packages without Composer dependencies, `composer dump-autoload` is enough. Review the CLI's printed next steps after activation.
+
+| Package | Adds |
+| --- | --- |
+| AuthO | Registration, sign-in, account, logout, password reset, optional email verification |
+| RolesO | Roles and permissions tables, management page, checks such as `user_can()` |
+| MailO | SMTP mail through PHPMailer and `send_mail()` |
+| QueueO | Database-backed queue, retries, failed jobs, `queue_dispatch()` |
+| ScheduleO | `config/schedule.php` and `php jeep schedule:run` |
+| TestO | Lightweight test runner and `php jeep make:test` |
+| UploadO | MIME-checked upload helper with random filenames and size limit |
+| CacheO | File cache helpers, including `cache_remember()` |
+| APIO | Hashed, expiring API tokens with abilities and bearer authentication |
+| CrudO | `php jeep make:crud` scaffold for model/controller/views/routes/migration |
+| ValidateO | Detailed validation rule reference; validator itself is built in |
+| LogO | JSON log files with secret-like context redaction |
+| StorageO | Private-by-default local file storage helpers |
+| BackupO | Local SQL backups, AES-GCM encryption, Google Drive upload/list/restore/retention CLI |
+| LocaleO | English/Tamil example translations, `set_locale()` and `trans()` |
+
+Generated package files belong to that app's source tree. If a package is already marked active, a later framework package change does not silently overwrite the app's copy; review and merge any package template update yourself.
+
+## Database backup and Google Drive
+
+Activate BackupO, then install the package requirements:
+
+```bash
+php jeep activate BackupO
+composer update
+```
+
+Create a 256-bit encryption key and add the printed value to `.duck` as `BACKUP_ENCRYPTION_KEY=...`. Keep a separate copy outside this project; without the exact key an encrypted backup cannot be restored. Configure Google Cloud with the Drive API enabled and create an OAuth client of type **Desktop app**. Run:
+
+```bash
+php jeep drive:connect C:\path\to\oauth-client.json
+```
+
+Open the URL shown by the CLI, approve access, and wait for the local callback. JeePHP uses OAuth with PKCE and stores the client/token in the ignored `storage/private/` directory. It asks only for access to files JeePHP creates in its Drive folder.
+
+Create a local encrypted backup and upload it to Drive:
+
+```bash
+php jeep backup:database --drive
+php jeep backup:list --drive
+php jeep drive:status
+```
+
+The CLI also supports local backup listing (`php jeep backup:list`), restore (`php jeep backup:restore BACKUP_FILE --force`), Drive restore (`php jeep backup:restore --drive FILE_ID --force`), retention cleanup (`php jeep backup:clean --keep=7`), Drive retention cleanup (`php jeep backup:clean --keep=7 --drive`), and disconnect (`php jeep drive:disconnect`). Restore requires typing `RESTORE`; Drive cleanup asks for `DELETE`. A backup is stored locally even after upload.
+
+Backups contain MySQL/MariaDB base-table schemas, rows, and views. InnoDB tables use a consistent snapshot; nontransactional tables may change during the dump. Triggers, stored procedures/functions, events, user grants, and tables created after the backup are not included. Restore replaces tables and views present in the backup, so check `.duck` and `DB_NAME` before confirming. Local files are encrypted only when `BACKUP_ENCRYPTION_KEY` is set; without it, they are compressed SQL and must be protected as sensitive data. Google Drive uploads always require encryption.
+
+## API tokens
+
+After activating APIO and running `php jeep migrate`, create a scoped token:
+
+```bash
+php jeep api:token 1 mobile-app users.read,users.write
+```
+
+Send the printed token only in an HTTPS `Authorization: Bearer TOKEN` header. In an API controller, require the specific ability before accessing data:
+
+```php
+$apiUser = api_require('users.read');
+if ($apiUser === null) return;
+```
+
+Store the token securely and revoke it with `php jeep api:revoke TOKEN_ID USER_ID`. Only its SHA-256 hash is stored in the database. Avoid wildcard `*` abilities unless the client truly needs every permission.
+
+## Package examples
+
+```php
+// MailO
+send_mail('user@example.com', 'Receipt', 'emails/receipt', ['order' => $order]);
+
+// CacheO
+$product = cache_remember('product:42', 300, fn () => Product::find(42));
+
+// LogO
+app_log('info', 'Order paid', ['order_id' => 42, 'password' => 'will be redacted']);
+
+// StorageO: private is the default disk
+$path = store_file('invoices/42.txt', $contents);
+
+// LocaleO
+set_locale('ta');
+$welcome = trans('welcome', ['app' => 'JeePHP']);
+```
+
+UploadO usage: `upload_file('photo', ['image/jpeg', 'image/png'], 2_000_000, 'avatars')`. It checks PHP upload status, size, and detected MIME type, then creates a random safe filename. Do not allow arbitrary HTML, SVG, or executable files in public storage.
+
+TestO is a small no-dependency runner, not PHPUnit. Use `php jeep make:test Example` and `php jeep test`. CrudO can generate a starter module with `php jeep make:crud Product name,price,description`; review its controller, validation, routes, and migration before running `php jeep migrate`.
+
+## Composer release note
+
+The source `config/app.php` version remains `1.0.0` as requested. Composer installs published tags; pushing to Git `main` does not update projects made with `composer create-project`. The earlier `v1.0.0` and `v1.1.0` tags are already used, so publish this source update with a new immutable tag such as `v1.2.0` and update Packagist before expecting Composer to install these packages.
+
+`config/mail.php` reads SMTP values from `.duck`. Activate MailO to install the PHPMailer transport and the `send_mail()` helper. After activation run `composer update`, set `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, and sender fields in `.duck`, then test with `php jeep mail:test user@example.com`.
 
 ## Built-in security
 
@@ -496,7 +629,7 @@ When `.duck` contains `APP_ENV=local` or `APP_ENV=development` and `APP_DEBUG=tr
 
 The detailed error screen and panel are disabled outside local/development debug mode. Before deployment, set `APP_ENV=production` and `APP_DEBUG=false`; stack traces can disclose application paths and implementation details.
 
-Security is layered: a CSRF token blocks cross-site form submissions, but no single helper can stop every attack. Continue to validate input, escape values with `e()` when displaying them, use JeePHP's prepared query methods, check user permissions on protected routes, and keep PHP and server software updated. CSRF protection is enabled for every unsafe request, so external callbacks and API clients must send a session token too; do not disable the check globally.
+Security is layered: a CSRF token blocks cross-site form submissions, but no single helper can stop every attack. Continue to validate input, escape values with `e()` when displaying them, use JeePHP's prepared query methods, check user permissions on protected routes, and keep PHP and server software updated.
 
 JeePHP includes routes, request handling, database query helpers, models, views, common helpers, migrations, CLI generators, and built-in request security. Optional AuthO authentication and RolesO roles/permissions scaffolds can be activated from the CLI; see the section below.
 

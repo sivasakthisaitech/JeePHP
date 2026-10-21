@@ -7,6 +7,7 @@ use JeePHP\Database\TableQuery;
 use JeePHP\Http\Request;
 use JeePHP\Routing\Router;
 use JeePHP\Security\Security;
+use JeePHP\Validation\Validator;
 
 if (!function_exists('route')) {
     function route(string $definition, string $action): void
@@ -286,23 +287,6 @@ if (!function_exists('old')) {
 if (!function_exists('validate')) {
     function validate(array $data, array $rules): array
     {
-        $errors = [];
-        foreach ($rules as $field => $fieldRules) {
-            $value = $data[$field] ?? null;
-            foreach (explode('|', (string) $fieldRules) as $rule) {
-                [$name, $argument] = array_pad(explode(':', $rule, 2), 2, null);
-                $invalid = match ($name) {
-                    'required' => $value === null || $value === '',
-                    'email' => $value !== null && $value !== '' && !filter_var($value, FILTER_VALIDATE_EMAIL),
-                    'min' => $value !== null && mb_strlen((string) $value) < (int) $argument,
-                    'max' => $value !== null && mb_strlen((string) $value) > (int) $argument,
-                    default => throw new InvalidArgumentException('Unknown validation rule: ' . $name),
-                };
-                if ($invalid) {
-                    $errors[$field][] = $field . ' failed the ' . $name . ' rule.';
-                }
-            }
-        }
-        return $errors;
+        return Validator::validate($data, $rules);
     }
 }
