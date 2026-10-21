@@ -11,7 +11,7 @@ final class PackageActivator
 {
     private const PACKAGES = [
         'AuthO', 'RolesO', 'MailO', 'QueueO', 'ScheduleO', 'TestO', 'UploadO',
-        'CacheO', 'APIO', 'CrudO', 'ValidateO', 'LogO', 'StorageO', 'BackupO', 'LocaleO',
+        'CacheO', 'APIO', 'FrogO', 'CrudO', 'ValidateO', 'LogO', 'StorageO', 'BackupO', 'LocaleO',
     ];
 
     public function __construct(private readonly string $root) {}
@@ -159,6 +159,7 @@ final class PackageActivator
             'UploadO' => 'Use upload_file() with MIME allow-list and a byte limit; it returns a random storage path.',
             'CacheO' => 'Use cache_remember() for time-limited results and cache_forget() when data changes.',
             'APIO' => 'Run php jeep api:token USER_ID app-name, then send Authorization: Bearer TOKEN.',
+            'FrogO' => 'Open /frogo while using a local development server. FrogO only opens in local development with APP_DEBUG=true and a loopback connection.',
             'CrudO' => 'Generate a module with php jeep make:crud Product name,price,description.',
             'ValidateO' => 'Use validate($request->only(...), $rules) before any insert or update.',
             'LogO' => 'Write logs with app_log(level, message, context); secret-like context fields are redacted.',

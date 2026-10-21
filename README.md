@@ -503,6 +503,7 @@ Package dependencies: RolesO requires AuthO; UploadO requires StorageO; CrudO re
 | UploadO | MIME-checked upload helper with random filenames and size limit |
 | CacheO | File cache helpers, including `cache_remember()` |
 | APIO | Hashed, expiring API tokens with abilities and bearer authentication |
+| FrogO | Local browser API tester at `/frogo`, with response details and error suggestions |
 | CrudO | `php jeep make:crud` scaffold for model/controller/views/routes/migration |
 | ValidateO | Detailed validation rule reference; validator itself is built in |
 | LogO | JSON log files with secret-like context redaction |
@@ -557,6 +558,20 @@ if ($apiUser === null) return;
 ```
 
 Store the token securely and revoke it with `php jeep api:revoke TOKEN_ID USER_ID`. Only its SHA-256 hash is stored in the database. Avoid wildcard `*` abilities unless the client truly needs every permission.
+
+## Test APIs with FrogO
+
+Activate FrogO to add a browser-based API workbench:
+
+```bash
+php jeep activate FrogO
+composer dump-autoload
+php jeep serve
+```
+
+Open `http://127.0.0.1:8000/frogo`. The request field starts at `/frogo/ping`, a local health-check endpoint you can send immediately. Then choose an HTTP method, enter your own route such as `/api/users`, add headers (including an APIO Bearer token when needed), and enter a JSON or raw request body. FrogO shows the status, duration, response size, body, and response headers. For common HTTP failures it explains the likely cause and what to check next. Request bodies and response previews are limited to 2 MB to keep the page responsive.
+
+FrogO is deliberately limited to `APP_ENV=local` (or development) with `APP_DEBUG=true`, and only serves loopback connections from this computer. Requests run directly in the browser and are restricted to the same origin; PHP does not proxy arbitrary URLs. Request data and tokens are kept in page memory only and are not saved. Do not use FrogO on a production server.
 
 ## Package examples
 
