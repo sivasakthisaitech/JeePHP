@@ -12,6 +12,7 @@ use JeePHP\Packages\CrudGenerator;
 use JeePHP\Packages\PackageActivator;
 use JeePHP\Schedule\Scheduler;
 use JeePHP\Testing\TestRunner;
+use JeePHP\Testing\IntegrationRunner;
 
 // Keep this diagnostic available even when Composer or the runtime gate blocks startup.
 if (($argv[1] ?? '') === 'security:check') {
@@ -47,10 +48,10 @@ try {
 
         mkdir($destination, 0775, true);
         try {
-            foreach (['app', 'bin', 'bootstrap', 'config', 'database', 'docs', 'packages', 'public', 'routes', 'src'] as $folder) {
+            foreach (['app', 'bin', 'bootstrap', 'config', 'database', 'docs', 'packages', 'public', 'routes', 'src', 'tests'] as $folder) {
                 copyDirectory($root . '/' . $folder, $destination . '/' . $folder);
             }
-            foreach (['.duck.example', '.gitignore', '.htaccess', 'README.md', 'AUDIT-REPORT.md', 'SECURITY-RELEASE.md', 'AUTHO-UPDATE-GUIDE.txt', 'composer.json', 'artisan', 'artisan.bat', 'index.php', 'jeep', 'jeep.bat', 'server.php'] as $file) {
+            foreach (['.duck.example', '.gitignore', '.htaccess', 'README.md', 'AUDIT-REPORT.md', 'SECURITY-RELEASE.md', 'AUTHO-UPDATE-GUIDE.txt', 'INTEGRATION-TESTS.md', 'composer.json', 'artisan', 'artisan.bat', 'index.php', 'jeep', 'jeep.bat', 'server.php'] as $file) {
                 if (is_file($root . '/' . $file)) {
                     copy($root . '/' . $file, $destination . '/' . $file);
                 }
@@ -209,6 +210,10 @@ try {
     if ($command === 'test') {
         requireActivePackage($root, 'TestO');
         exit((new TestRunner())->run($root . '/tests'));
+    }
+
+    if ($command === 'test:integration') {
+        exit((new IntegrationRunner($root))->run(optionValue($argv, '--base-url=', (string) (getenv('APP_URL') ?: ''))));
     }
 
     if ($command === 'queue:work') {
@@ -541,6 +546,7 @@ try {
     echo "  php artisan schedule:run                     Run due scheduled jobs\n";
     echo "  php artisan make:test UserTest               Create a test file\n";
     echo "  php artisan test                             Run project tests\n";
+    echo "  php artisan test:integration --base-url=http://localhost/JeePHPIntegration  Test a disposable local project\n";
     echo "  php artisan mail:test user@example.com       Send a test email\n";
     echo "  php artisan cache:clear                     Clear file cache entries\n";
     echo "  php artisan log:tail [--lines=50]            Read recent application logs\n";

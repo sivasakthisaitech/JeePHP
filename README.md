@@ -1,5 +1,7 @@
 # JeePHP 1.0.0
 
+Real XAMPP/Apache, MySQL, routes, CRUD, migration, AuthO, RolesO, APIO, UploadO, and encrypted backup integration checks: see [INTEGRATION-TESTS.md](INTEGRATION-TESTS.md). Run `php artisan test:integration --base-url=http://localhost/JeePHPIntegration` from a dedicated test project/database.
+
 JeePHP is a small, Laravel-inspired PHP framework. It keeps a familiar application structure while using short, readable PHP for everyday database and page work.
 
 The full beginner reference is available as [DOCX](docs/JeePHP-Manual-Book-v1.0.0.docx) and [PDF](docs/JeePHP-Manual-Book-v1.0.0.pdf). JeePHP includes an Artisan-style CLI entry point: use `php artisan` for the command list and run every JeePHP command through it. The older `php jeep` entry point remains available.
@@ -612,7 +614,7 @@ UploadO usage: `upload_file('photo', ['image/jpeg', 'image/png'], 2_000_000, 'av
 
 TestO is a small no-dependency runner, not PHPUnit. Use `php artisan make:test Example` and `php artisan test`. CrudO can generate a starter module with `php artisan make:crud Product name,price,description`; review its controller, validation, routes, and migration before running `php artisan migrate`.
 
-To check this source update on a patched PHP machine, run `php artisan security:check`, `composer validate`, `composer install`, `php artisan test`, and `php artisan serve`. Test AuthO registration/login, a generated CRUD create/edit form, and a JSON API request against a running MySQL database; this project's test runner does not replace those integration checks.
+To check this source update on a patched PHP machine, run `php artisan security:check`, `composer validate`, `composer install`, `php artisan test`, and `php artisan serve`. Run `php artisan test:integration --base-url=http://localhost/JeePHPIntegration` in a disposable XAMPP project with a dedicated MySQL database; follow [INTEGRATION-TESTS.md](INTEGRATION-TESTS.md). The integration result is not known until that real server/database run passes.
 
 ## Composer release note
 
