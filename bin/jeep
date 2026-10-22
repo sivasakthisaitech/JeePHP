@@ -13,6 +13,19 @@ use JeePHP\Packages\PackageActivator;
 use JeePHP\Schedule\Scheduler;
 use JeePHP\Testing\TestRunner;
 
+// Keep this diagnostic available even when Composer or the runtime gate blocks startup.
+if (($argv[1] ?? '') === 'security:check') {
+    require_once dirname(__DIR__) . '/src/JeePHP/Security/Platform.php';
+    $minimum = \JeePHP\Security\Platform::minimum();
+    echo 'JeePHP PHP runtime security check' . "\n";
+    echo '  PHP binary: ' . PHP_BINARY . "\n";
+    echo '  PHP version: ' . PHP_VERSION . "\n";
+    echo '  Required patch on this branch: ' . ($minimum ?? 'unsupported PHP branch') . "\n";
+    echo '  Result: ' . (\JeePHP\Security\Platform::isPatched() ? 'PASS' : 'FAIL') . "\n";
+    echo "  Check Apache/FPM PHP separately; this command checks only the CLI binary.\n";
+    exit(\JeePHP\Security\Platform::isPatched() ? 0 : 1);
+}
+
 require dirname(__DIR__) . '/bootstrap/app.php';
 
 $command = $argv[1] ?? 'help';
@@ -37,7 +50,7 @@ try {
             foreach (['app', 'bin', 'bootstrap', 'config', 'database', 'docs', 'packages', 'public', 'routes', 'src'] as $folder) {
                 copyDirectory($root . '/' . $folder, $destination . '/' . $folder);
             }
-            foreach (['.duck.example', '.gitignore', '.htaccess', 'README.md', 'composer.json', 'artisan', 'artisan.bat', 'index.php', 'jeep', 'jeep.bat', 'server.php'] as $file) {
+            foreach (['.duck.example', '.gitignore', '.htaccess', 'README.md', 'AUDIT-REPORT.md', 'SECURITY-RELEASE.md', 'composer.json', 'artisan', 'artisan.bat', 'index.php', 'jeep', 'jeep.bat', 'server.php'] as $file) {
                 if (is_file($root . '/' . $file)) {
                     copy($root . '/' . $file, $destination . '/' . $file);
                 }
@@ -501,6 +514,7 @@ try {
     echo "JeePHP Artisan-style command line\n";
     echo "Run php artisan, php artisan list, or php artisan --help to show this command list.\n\n";
     echo "  php artisan --version                     Show the framework version\n";
+    echo "  php artisan security:check                Check this CLI PHP runtime patch\n";
     echo "  php artisan create MyApp                   Create a project in this folder\n";
     echo "  php artisan new MyApp                      Alias for create\n";
     echo "  php artisan serve [port|host:port]          Run locally without Apache/XAMPP\n";

@@ -72,6 +72,14 @@ if (!function_exists('load_table')) {
     }
 }
 
+if (!function_exists('table_ajax')) {
+    /** Return a complete server-side DataTables response in one line. */
+    function table_ajax(string $table, string ...$columns): string
+    {
+        return json_data(table_load($table)->columns(...$columns)->ajax());
+    }
+}
+
 if (!function_exists('data')) {
     function data(TableQuery $query): array
     {

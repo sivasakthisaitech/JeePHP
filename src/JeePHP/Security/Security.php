@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace JeePHP\Security;
 
 use JeePHP\Http\Request;
+use RuntimeException;
 
 /** Framework-wide session, response-header, and CSRF protections. */
 final class Security
@@ -40,14 +41,20 @@ final class Security
         ini_set('session.cookie_httponly', '1');
         ini_set('session.cookie_samesite', 'Lax');
 
+        // Isolate projects sharing localhost, including distinct XAMPP subfolders.
+        $basePath = Request::basePath();
+        session_name('JP' . substr(hash('sha256', dirname(__DIR__, 3) . $basePath), 0, 20));
+
         session_set_cookie_params([
             'httponly' => true,
             'secure' => self::isHttps(),
             'samesite' => 'Lax',
-            'path' => '/',
+            'path' => $basePath === '' ? '/' : $basePath . '/',
         ]);
 
-        session_start();
+        if (!session_start()) {
+            throw new RuntimeException('Could not start the secure session. Check PHP session storage.');
+        }
     }
 
     public static function csrfToken(): string
@@ -112,15 +119,18 @@ final class Security
     public static function regenerateSession(): void
     {
         self::startSession();
-        session_regenerate_id(true);
+        if (!session_regenerate_id(true)) {
+            throw new RuntimeException('Could not rotate the session ID after authentication.');
+        }
         $_SESSION[self::TOKEN_KEY] = bin2hex(random_bytes(32));
     }
 
     private static function isHttps(): bool
     {
-        return isset($_SERVER['HTTPS'])
+        return (isset($_SERVER['HTTPS'])
             && $_SERVER['HTTPS'] !== ''
-            && strtolower((string) $_SERVER['HTTPS']) !== 'off';
+            && strtolower((string) $_SERVER['HTTPS']) !== 'off')
+            || strtolower((string) parse_url((string) (getenv('APP_URL') ?: ''), PHP_URL_SCHEME)) === 'https';
     }
 
     private static function hasValidApiBearer(Request $request): bool

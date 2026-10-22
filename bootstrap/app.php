@@ -2,6 +2,21 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
+require_once $root . '/src/JeePHP/Security/Platform.php';
+try {
+    \JeePHP\Security\Platform::assertPatched();
+} catch (RuntimeException $error) {
+    if (PHP_SAPI === 'cli') {
+        fwrite(STDERR, $error->getMessage() . "\n");
+        exit(1);
+    }
+    http_response_code(503);
+    header('Content-Type: text/plain; charset=utf-8');
+    header('Cache-Control: no-store');
+    echo 'JeePHP requires a patched PHP runtime. Update PHP before serving this application.';
+    exit;
+}
+
 if (is_file($root . '/vendor/autoload.php')) {
     require $root . '/vendor/autoload.php';
 } else {

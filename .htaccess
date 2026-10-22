@@ -1,12 +1,17 @@
 Options -Indexes
 DirectoryIndex index.php
 
+# These files stay private even when mod_rewrite is unavailable.
+<FilesMatch "^(?:\.duck(?:\..*)?|\.env(?:\..*)?|\.gitignore|composer\.(?:json|lock)|README(?:\.md)?|AUDIT-REPORT\.md|APPLY-UPDATE\.txt|UPDATE-NOTES\.txt|artisan(?:\.bat)?|jeep(?:\.bat)?|server\.php)$">
+    Require all denied
+</FilesMatch>
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
     RewriteRule (^|/)\.(?!well-known(?:/|$)) - [F,L,NC]
     RewriteRule ^(?:app|bin|bootstrap|config|database|docs|packages|src|storage|tests|vendor)(?:/|$) - [F,L,NC]
-    RewriteRule ^(?:\.duck(?:\..*)?|composer\.(?:json|lock)|README(?:\.md)?|artisan(?:\.bat)?|jeep(?:\.bat)?|server\.php)$ - [F,L,NC]
+    RewriteRule ^(?:\.duck(?:\..*)?|composer\.(?:json|lock)|README(?:\.md)?|AUDIT-REPORT\.md|APPLY-UPDATE\.txt|UPDATE-NOTES\.txt|artisan(?:\.bat)?|jeep(?:\.bat)?|server\.php)$ - [F,L,NC]
 
     RewriteRule ^public/ - [L]
     RewriteRule ^$ public/index.php [L]

@@ -82,6 +82,12 @@ final class ApiTokens
     {
         $statement = Database::connection()->prepare('DELETE FROM api_tokens WHERE id = :id AND user_id = :user_id');
         $statement->execute(['id' => $id, 'user_id' => $userId]);
-        return $statement->rowCount() === 1;
+        $revoked = $statement->rowCount() === 1;
+        if ($revoked && (int) (self::$cachedRecord['id'] ?? 0) === $id) {
+            self::$cachedTokenHash = '';
+            self::$cachedRecord = null;
+            self::$cacheResolved = false;
+        }
+        return $revoked;
     }
 }

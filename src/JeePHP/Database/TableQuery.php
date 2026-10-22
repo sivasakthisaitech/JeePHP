@@ -138,12 +138,15 @@ final class TableQuery
      * Column names always come from columns()/whereColumn(), never from the
      * browser request, so sorting and search cannot inject SQL identifiers.
      */
-    public function ajax(Request $request): array
+    public function ajax(?Request $request = null): array
     {
-        if (in_array('*', $this->selectedColumnNames, true)) {
-            throw new LogicException('Choose columns() before using ajax() so search and sort columns are safe.');
+        foreach ($this->selectedColumnNames as $column) {
+            if (str_contains($column, '*')) {
+                throw new LogicException('Choose explicit columns() before using ajax() so search and sort columns are safe.');
+            }
         }
 
+        $request ??= Request::capture();
         $input = $request->all();
         $draw = $this->safeInteger($input['draw'] ?? 0, 0);
         $start = $this->safeInteger($input['start'] ?? 0, 0);
@@ -307,7 +310,7 @@ final class TableQuery
             if ($index === false || !array_key_exists($index, $this->selectedColumnNames)) {
                 continue;
             }
-            $direction = strtoupper((string) ($order['dir'] ?? 'ASC'));
+            $direction = is_string($order['dir'] ?? null) ? strtoupper($order['dir']) : 'ASC';
             if (!in_array($direction, ['ASC', 'DESC'], true)) {
                 $direction = 'ASC';
             }

@@ -6,7 +6,7 @@ The full beginner reference is available as [DOCX](docs/JeePHP-Manual-Book-v1.0.
 
 ## Requirements
 
-- PHP 8.1 or later
+- Patched PHP 8.2.35+, 8.3.36+, 8.4.27+, or 8.5.12+ (on its respective branch); see [security release checklist](SECURITY-RELEASE.md)
 - Composer
 - MySQL or MariaDB only when you use database features
 - PHP extensions: PDO MySQL and mbstring
@@ -203,7 +203,16 @@ fetch_table('users')
 
 ## Simple DataTables AJAX
 
-For server-side DataTables, JeePHP reads DataTables' `draw`, `start`, `length`, `search`, and `order` request values and returns the JSON keys DataTables expects. The controller only needs to list the table columns and pass the request:
+For server-side DataTables, JeePHP reads DataTables' `draw`, `start`, `length`, `search`, and `order` request values and returns the JSON keys DataTables expects. A complete controller action can be one line:
+
+```php
+public function load_data(): string
+{
+    return table_ajax('pooja_bookings', 'id', 'booking_no', 'customer_name', 'booking_date', 'status');
+}
+```
+
+When you need a database filter, use the query builder and let `ajax()` capture the current request:
 
 ```php
 <?php
@@ -213,11 +222,11 @@ use JeePHP\Http\Request;
 
 final class BookingController
 {
-    public function load_data(Request $request): string
+    public function load_data(): string
     {
         $result = load_table('pooja_bookings')
             ->where_column('id', 'booking_no', 'customer_name', 'booking_date', 'status')
-            ->ajax($request);
+            ->ajax();
 
         return json_data($result);
     }
@@ -253,7 +262,7 @@ $('#bookingTable').DataTable({
 });
 ```
 
-`where_column()` is a short alias for choosing which columns can be returned, searched, and sorted. Add database filters with `where()`, for example `->where('status', 'active')`, before calling `ajax($request)`. JeePHP uses only columns declared in PHP, not names supplied by the browser. Search values use prepared statements. Each AJAX response is limited to 500 rows maximum.
+`where_column()` is a short alias for choosing which columns can be returned, searched, and sorted. Add database filters with `where()`, for example `->where('status', 'active')`, before calling `ajax()`. JeePHP uses only explicit columns declared in PHP, not names supplied by the browser. Search values use prepared statements. Each AJAX response is limited to 500 rows maximum. Older code passing `$request` to `ajax($request)` still works.
 
 For a normal page render, fetch rows without DataTables' AJAX response format:
 
@@ -399,6 +408,7 @@ For one-to-many, use `hasMany()` and load it the same way: `User::with('posts')-
 ## Built-in helpers
 
 - `load_table('customers')` starts a query builder; it is a short alias for `table_load()`.
+- `table_ajax('customers', 'id', 'name')` returns DataTables JSON with a one-line controller action.
 - `data($query)` fetches rows for a normal page; `json_data($result)` returns JSON for an AJAX route.
 - `e($value)` safely escapes output in HTML.
 - `hash_password($password)` securely hashes a password; `verify_password($plain, $hash)` checks it.
@@ -475,6 +485,8 @@ JeePHP checks every `POST`, `PUT`, `PATCH`, and `DELETE` browser request before 
 
 When APIO is active, a valid `Authorization: Bearer ...` token can authenticate machine requests under `/api/` without a browser session token. Keep each API controller protected with `api_require('ability.name')`; the exemption does not grant authorization by itself. GET routes remain safe, and API endpoints should not change data with GET.
 
+Before installing or deploying, use `php artisan security:check`. It checks the CLI PHP binary only; check the Apache/FPM PHP version separately. Composer and bootstrap now reject unpatched PHP branches and releases after the October 2026 PHP engine advisory. This startup guard cannot stop an engine exploit that runs before application code: upgrade the hosting runtime. The security release checklist also covers AuthO/APIO upgrades, production configuration, and release tests.
+
 `<safe>` is not a PHP tag and cannot automatically protect arbitrary code. Security still depends on input validation, output escaping, route authorization, HTTPS, updated dependencies, and keeping secrets out of Git. The built-in protections are useful defaults, not a guarantee against every attack.
 
 ## Development Console
@@ -514,7 +526,7 @@ Package dependencies: RolesO requires AuthO; UploadO requires StorageO; CrudO re
 | BackupO | Local SQL backups, AES-GCM encryption, Google Drive upload/list/restore/retention CLI |
 | LocaleO | English/Tamil example translations, `set_locale()` and `trans()` |
 
-Generated package files belong to that app's source tree. If a package is already marked active, a later framework package change does not silently overwrite the app's copy; review and merge any package template update yourself.
+Generated package files belong to that app's source tree. If AuthO was activated **before this fix**, add `route('POST /auth/register', 'AuthController@register');` and `route('POST /auth/login', 'AuthController@login');` to the existing `routes/web.php`. New AuthO activations include both routes. If a package is already marked active, a later framework package change does not silently overwrite the app's copy; review and merge any package template update yourself.
 
 ## Database backup and Google Drive
 
@@ -599,6 +611,8 @@ $welcome = trans('welcome', ['app' => 'JeePHP']);
 UploadO usage: `upload_file('photo', ['image/jpeg', 'image/png'], 2_000_000, 'avatars')`. It checks PHP upload status, size, and detected MIME type, then creates a random safe filename. Do not allow arbitrary HTML, SVG, or executable files in public storage.
 
 TestO is a small no-dependency runner, not PHPUnit. Use `php artisan make:test Example` and `php artisan test`. CrudO can generate a starter module with `php artisan make:crud Product name,price,description`; review its controller, validation, routes, and migration before running `php artisan migrate`.
+
+To check this source update on a patched PHP machine, run `php artisan security:check`, `composer validate`, `composer install`, `php artisan test`, and `php artisan serve`. Test AuthO registration/login, a generated CRUD create/edit form, and a JSON API request against a running MySQL database; this project's test runner does not replace those integration checks.
 
 ## Composer release note
 

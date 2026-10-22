@@ -16,6 +16,10 @@ final class Validator
                 throw new InvalidArgumentException('Validation fields must be simple names.');
             }
             $value = $data[$field] ?? null;
+            if ($value !== null && !is_scalar($value)) {
+                $errors[$field][] = 'The ' . str_replace('_', ' ', $field) . ' field must be a single value.';
+                continue;
+            }
             $parts = is_array($fieldRules) ? $fieldRules : explode('|', (string) $fieldRules);
             foreach ($parts as $rule) {
                 if (!is_string($rule) || $rule === '') {

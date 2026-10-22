@@ -75,7 +75,21 @@ final class Request
         if ($path !== '/') {
             $path = rtrim($path, '/');
         }
-        return new self($method, $path, $_GET, $_POST);
+        $body = $_POST;
+        $contentType = trim((string) ($_SERVER['CONTENT_TYPE'] ?? ''));
+        if (preg_match('~^(?:application/json|application/[a-z0-9.+-]+\+json)(?:\s*;|$)~i', $contentType) === 1) {
+            $raw = file_get_contents('php://input');
+            try {
+                $decoded = json_decode($raw === false ? '' : $raw, true, 512, JSON_THROW_ON_ERROR);
+            } catch (\JsonException $error) {
+                throw new \InvalidArgumentException('Invalid JSON request body.', 0, $error);
+            }
+            if (!is_array($decoded) || !str_starts_with(ltrim($raw === false ? '' : $raw), '{')) {
+                throw new \InvalidArgumentException('JSON request body must be an object.');
+            }
+            $body = $decoded;
+        }
+        return new self($method, $path, $_GET, $body);
     }
 
     public function input(string $key, mixed $default = null): mixed

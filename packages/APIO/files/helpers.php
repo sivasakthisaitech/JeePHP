@@ -23,14 +23,16 @@ if (!function_exists('api_can')) {
     }
 }
 if (!function_exists('api_require')) {
-    function api_require(?string $ability = null): ?array
+    function api_require(?string $ability = null): array
     {
         $user = api_user();
         if ($user === null || ($ability !== null && !in_array('*', $user['abilities'] ?? [], true) && !in_array($ability, $user['abilities'] ?? [], true))) {
             http_response_code($user === null ? 401 : 403);
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode(['error' => $user === null ? 'unauthenticated' : 'forbidden'], JSON_INVALID_UTF8_SUBSTITUTE);
-            return null;
+            // An authorization helper must stop execution even if the caller
+            // forgets to check its result before handling sensitive data.
+            exit;
         }
         return $user;
     }

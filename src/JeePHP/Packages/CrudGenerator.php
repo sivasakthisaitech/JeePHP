@@ -190,8 +190,8 @@ PHP;
         $formView = <<<PHP
 <?php
 \$value = static function (string \$key) use (\$item): string {
-    if (is_array(\$item)) return e(\$item[\$key] ?? '');
-    return is_object(\$item) ? e(\$item->{\$key} ?? '') : '';
+    \$value = is_array(\$item) ? (\$item[\$key] ?? '') : (is_object(\$item) ? (\$item->{\$key} ?? '') : '');
+    return is_scalar(\$value) ? (string) \$value : '';
 };
 ?>
 <h1><?= \$mode === 'edit' ? 'Edit {$model}' : 'Create {$model}' ?></h1>

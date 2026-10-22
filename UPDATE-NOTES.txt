@@ -26,3 +26,15 @@ The dump includes MySQL/MariaDB base table schema, data, and views. It does not 
 
 Release note
 `config/app.php` continues to report 1.0.0 as requested. The earlier `v1.0.0` and `v1.1.0` tags are already used; publish this source with a new immutable tag such as `v1.2.0` rather than moving an existing tag.
+
+Audit fixes, 22 October 2026
+- Fixed missing AuthO POST routes, CRUD form double HTML escaping, and array-valued input validation.
+- Added one-line table_ajax(), no-argument ajax(), JSON object request parsing with HTTP 400 on malformed bodies, and DataTables explicit-column enforcement.
+- Added Apache deny rules in private source folders, a core regression test, and updated reference documentation.
+- Existing activated package copies need manual route merging. No PHP executable, MySQL, or Apache was available in the build environment for runtime integration tests.
+
+Security release candidate, 22 October 2026
+- Composer and bootstrap reject PHP runtimes older than 8.2.35 / 8.3.36 / 8.4.27 / 8.5.12 on each supported branch. php artisan security:check diagnoses CLI PHP; the actual web-server PHP must also be patched. The PHP engine vulnerability is reachable before application bootstrap.
+- Sessions use a project-scoped cookie name and subfolder path; configured HTTPS APP_URL enables Secure cookies behind trusted TLS termination. Session startup/rotation failures stop instead of silently proceeding.
+- APIO's api_require() ends the request with JSON 401/403 on failure; token revocation clears the in-process cache.
+- Added patch-boundary tests and SECURITY-RELEASE.md deployment and integration gate. Existing activated APIO helpers require merging. This is not certified or runtime-tested here.

@@ -17,3 +17,12 @@ For XAMPP Apache, open `http://localhost/MyApp/`. Do not open `app/Views/` direc
 On Windows, use `artisan.bat`. The previous `php jeep` and `jeep.bat` launchers continue to work.
 
 Activation creates source files and migrations. Run migrations only after reviewing them and backing up important production data. This source still reports version `1.0.0` as requested. The earlier `v1.0.0` and `v1.1.0` Git tags are already used; do not move or overwrite them. Publish these changes using a new immutable release tag such as `v1.2.0` and update Packagist before running `composer create-project` from the new release.
+
+22 October framework audit fixes
+- New AuthO activations now include POST /auth/register and POST /auth/login. If AuthO was already activated, add those two routes to your existing routes/web.php; package activation never overwrites it.
+- DataTables: return table_ajax('customers', 'id', 'name') for a one-line response. Existing ajax($request) still works; ajax() without an argument captures the request.
+- JSON object requests are read by $request->input(); malformed or non-object JSON returns HTTP 400. Browser POST requests still need a CSRF token.
+- Generated CRUD form values are escaped once; arrays sent to scalar validation fields are rejected.
+- Apache source folders include independent deny rules. For clean URLs enable mod_rewrite and AllowOverride All; production DocumentRoot must be public/.
+- Upgrade CLI and Apache/FPM PHP to a patched 8.2.35+, 8.3.36+, 8.4.27+, or 8.5.12+ release, then run php artisan security:check, composer validate, composer install, php artisan test, and MySQL/Apache integration checks. Never bypass Composer's PHP constraint; see SECURITY-RELEASE.md.
+- If APIO was previously activated, replace its appended api_require() helper with packages/APIO/files/helpers.php; failed authorization now terminates the request. Clear old session cookies after the session cookie name/path change.
