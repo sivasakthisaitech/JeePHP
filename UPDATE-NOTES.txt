@@ -38,3 +38,9 @@ Security release candidate, 22 October 2026
 - Sessions use a project-scoped cookie name and subfolder path; configured HTTPS APP_URL enables Secure cookies behind trusted TLS termination. Session startup/rotation failures stop instead of silently proceeding.
 - APIO's api_require() ends the request with JSON 401/403 on failure; token revocation clears the in-process cache.
 - Added patch-boundary tests and SECURITY-RELEASE.md deployment and integration gate. Existing activated APIO helpers require merging. This is not certified or runtime-tested here.
+
+AuthO security update, 22 October 2026
+- Login/register/password-reset attempts now use MySQL atomic counters across sessions and workers. Session rotation no longer resets the limit. Account-wide locked_until is no longer enforced, preventing bad password attempts from locking another person out.
+- New AuthO migration creates auth_rate_limits. For already activated apps: back up DB, merge the AuthO controller and helper block, then run php artisan auth:upgrade before opening traffic.
+- auth_require_owner($record) stops unauthorized record access with 404 when used in each protected controller action; auth_owns() returns a boolean. New AuthSecurityTest covers ownership edge cases and bucket separation.
+- Limits by REMOTE_ADDR need trusted-edge protection behind proxies and against distributed traffic; real MySQL and web integration tests remain required.

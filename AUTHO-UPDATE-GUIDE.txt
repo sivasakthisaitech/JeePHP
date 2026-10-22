@@ -1,0 +1,19 @@
+JeePHP AuthO security update — 22 October 2026
+
+New project / AuthO not yet activated:
+  php artisan activate AuthO
+  composer dump-autoload
+  php artisan migrate
+
+Already activated AuthO:
+1. Back up the MySQL database and project; pause login/register/reset traffic during deployment.
+2. Copy new framework src/JeePHP/Security/AuthRateLimiter.php and Authorization.php and bin/jeep.
+3. Compare packages/AuthO/files/app/Controllers/AuthController.php with your app/Controllers/AuthController.php and merge the rate-limit/login changes. Package activation never overwrites your controller.
+4. In app/Helpers/helpers.php, replace the existing // JeePHP package: AuthO block with packages/AuthO/files/helpers.php. Keep unrelated helper blocks. If your app has custom AuthO helper changes, merge them carefully.
+5. In the project terminal:
+   php artisan auth:upgrade
+   composer dump-autoload
+   php artisan test
+6. Using real MySQL and the web server, open two separate browser sessions and submit bad login passwords. The fifth try for the same email/IP is accepted, the sixth is HTTP 429 even in a fresh browser session. A valid login from another IP should not be account-locked. Test registration and password reset limits and an owned versus unowned record through auth_require_owner(). Reopen traffic after checks pass.
+
+auth:upgrade creates only auth_rate_limits; it does not alter existing users or passwords. Do not run an old AuthO controller after switching traffic: its session-only protection would still apply. If your server sits behind a proxy, REMOTE_ADDR may be the proxy's IP for everyone; configure trusted edge limits and test there.

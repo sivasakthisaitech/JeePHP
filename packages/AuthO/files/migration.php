@@ -6,6 +6,7 @@ use JeePHP\Database\Migration;
 return new class implements Migration {
     public function up(\PDO $database): void
     {
+        \JeePHP\Security\AuthRateLimiter::installSchema($database);
         create_table('auth_users')
             ->stringColumn('name', 150, false)
             ->stringColumn('email', 190, false)
@@ -36,6 +37,7 @@ return new class implements Migration {
 
     public function down(\PDO $database): void
     {
+        $database->exec('DROP TABLE IF EXISTS auth_rate_limits');
         $database->exec('DROP TABLE IF EXISTS auth_email_verifications');
         $database->exec('DROP TABLE IF EXISTS auth_password_resets');
         drop_table('auth_users');

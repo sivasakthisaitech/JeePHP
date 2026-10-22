@@ -50,7 +50,7 @@ try {
             foreach (['app', 'bin', 'bootstrap', 'config', 'database', 'docs', 'packages', 'public', 'routes', 'src'] as $folder) {
                 copyDirectory($root . '/' . $folder, $destination . '/' . $folder);
             }
-            foreach (['.duck.example', '.gitignore', '.htaccess', 'README.md', 'AUDIT-REPORT.md', 'SECURITY-RELEASE.md', 'composer.json', 'artisan', 'artisan.bat', 'index.php', 'jeep', 'jeep.bat', 'server.php'] as $file) {
+            foreach (['.duck.example', '.gitignore', '.htaccess', 'README.md', 'AUDIT-REPORT.md', 'SECURITY-RELEASE.md', 'AUTHO-UPDATE-GUIDE.txt', 'composer.json', 'artisan', 'artisan.bat', 'index.php', 'jeep', 'jeep.bat', 'server.php'] as $file) {
                 if (is_file($root . '/' . $file)) {
                     copy($root . '/' . $file, $destination . '/' . $file);
                 }
@@ -127,6 +127,13 @@ try {
         foreach (PackageActivator::available($root) as $package) {
             echo str_pad($package['name'], 12) . ($package['active'] ? 'active' : 'available') . "\n";
         }
+        exit(0);
+    }
+
+    if ($command === 'auth:upgrade') {
+        requireActivePackage($root, 'AuthO');
+        \JeePHP\Security\AuthRateLimiter::installSchema(\JeePHP\Database\Database::connection());
+        echo "AuthO rate limit table is ready. Existing users and passwords were not changed.\n";
         exit(0);
     }
 
@@ -526,6 +533,7 @@ try {
     echo "  php artisan migrate:create users            Create a table migration\n";
     echo "  php artisan package:list                    List JeePHP optional packages\n";
     echo "  php artisan activate PACKAGE                Activate a built-in package\n";
+    echo "  php artisan auth:upgrade                    Add AuthO shared rate limits to existing apps\n";
     echo "  php artisan make:crud Product name,price     Generate a CRUD module\n";
     echo "  php artisan make:job SendReport              Create a queueable job\n";
     echo "  php artisan queue:work [--once]              Process background jobs\n";

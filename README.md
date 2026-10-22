@@ -679,6 +679,17 @@ php artisan migrate
 
 AuthO adds registration, login, account, and logout pages. Passwords must be 12–72 bytes and use `password_hash()`/`password_verify()`. Unsafe form requests use the framework CSRF check, sessions rotate after login, and signup/sign-in attempts are limited. RolesO adds roles, permissions, user-role and role-permission tables, helpers, and a management page protected by `roles.manage`.
 
+AuthO now counts attempts in MySQL across sessions and PHP workers: 30 login requests per IP per 15 minutes, 5 per IP/email per 15 minutes, 10 registrations per IP per hour, and 5 reset requests per IP per hour. Requests beyond the limit return 429; if MySQL is unavailable, authentication fails instead of bypassing the limit. The old account-wide `locked_until` check was removed so a stranger cannot lock a victim out by submitting bad passwords. Behind a reverse proxy, `REMOTE_ADDR` is the proxy address: set rate limits at the trusted edge or configure a trusted client-IP layer for high-traffic deployments. Distributed attackers using many IPs still require edge protection and monitoring.
+
+For a record with `user_id`, check its owner inside **every** read/update/delete controller action:
+
+```php
+$booking = table_connect('bookings')->where('id', $request->route('id'))->first();
+auth_require_owner($booking); // Sends 404 and stops if missing or owned by another user.
+```
+
+For an existing app where AuthO is already active, back up the database and deploy in maintenance mode. Merge `packages/AuthO/files/app/Controllers/AuthController.php` into the existing `app/Controllers/AuthController.php`, and replace the appended AuthO block in `app/Helpers/helpers.php` with `packages/AuthO/files/helpers.php` (preserve the other package blocks). Then run `php artisan auth:upgrade` to create `auth_rate_limits`, `composer dump-autoload`, and check login/registration/reset and 429 behavior on the actual web server. Do the schema upgrade before allowing AuthO traffic. Fresh AuthO activations create the table in their normal migration.
+
 After creating an AuthO account and applying both migrations, replace `1` with the account ID to enable the first roles manager:
 
 ```bash

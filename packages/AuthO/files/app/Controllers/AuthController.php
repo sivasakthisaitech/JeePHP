@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use JeePHP\Http\Request;
+use JeePHP\Security\AuthRateLimiter;
 use JeePHP\Security\Security;
 
 final class AuthController
@@ -21,12 +22,7 @@ final class AuthController
         $name = is_string($rawName) ? trim($rawName) : '';
         $email = is_string($rawEmail) ? strtolower(trim($rawEmail)) : '';
         $password = is_string($rawPassword) ? $rawPassword : '';
-        $registerLimit = session('auth_register_limit');
-        $now = time();
-        if (!is_array($registerLimit) || ($registerLimit['until'] ?? 0) <= $now) {
-            $registerLimit = ['count' => 0, 'until' => $now + 3600];
-        }
-        if (($registerLimit['count'] ?? 0) >= 3) {
+        if (!AuthRateLimiter::hit('register-ip', AuthRateLimiter::clientIp(), 10, 3600)) {
             http_response_code(429);
             load_view('auth/register', ['error' => 'Too many account creation attempts. Please try again in one hour.']);
             return;
@@ -43,9 +39,6 @@ final class AuthController
             load_view('auth/register', ['error' => 'Email verification is enabled. Activate MailO and configure SMTP first.']);
             return;
         }
-
-        $registerLimit['count']++;
-        session('auth_register_limit', $registerLimit);
 
         if (table_connect('auth_users')->where('email', $email)->first() !== null) {
             http_response_code(422);
@@ -87,53 +80,38 @@ final class AuthController
             return;
         }
 
-        $limit = session('auth_login_limit');
-        $now = time();
-        if (!is_array($limit) || ($limit['until'] ?? 0) <= $now) {
-            $limit = ['count' => 0, 'until' => $now + 900];
-        }
-        if (($limit['count'] ?? 0) >= 5) {
+        $rawEmail = $request->input('email', '');
+        $rawPassword = $request->input('password', '');
+        $email = is_string($rawEmail) ? strtolower(trim($rawEmail)) : '';
+        $password = is_string($rawPassword) ? $rawPassword : '';
+        $ip = AuthRateLimiter::clientIp();
+        $ipAllowed = AuthRateLimiter::hit('login-ip', $ip, 30, 900);
+        $accountIpAllowed = $email === '' || AuthRateLimiter::hit('login-account-ip', $ip . "\0" . $email, 5, 900);
+        if (!$ipAllowed || !$accountIpAllowed) {
             http_response_code(429);
             load_view('auth/login', ['error' => 'Too many sign-in attempts. Please wait 15 minutes and try again.']);
             return;
         }
 
-        $rawEmail = $request->input('email', '');
-        $rawPassword = $request->input('password', '');
-        $email = is_string($rawEmail) ? strtolower(trim($rawEmail)) : '';
-        $password = is_string($rawPassword) ? $rawPassword : '';
         $user = filter_var($email, FILTER_VALIDATE_EMAIL) !== false
             ? table_connect('auth_users')->where('email', $email)->first()
             : null;
-        $lockedUntil = is_array($user) ? strtotime((string) ($user['locked_until'] ?? '')) : false;
-        $locked = $lockedUntil !== false && $lockedUntil > $now;
         $passwordHash = is_array($user)
             ? (string) $user['password_hash']
             : '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.';
         $passwordMatches = password_verify($password, $passwordHash);
-        if (!$locked && is_array($user) && $passwordMatches) {
+        if (is_array($user) && $passwordMatches) {
             if (filter_var(getenv('AUTH_REQUIRE_EMAIL_VERIFICATION') ?: 'false', FILTER_VALIDATE_BOOL)
                 && empty($user['email_verified_at'])) {
                 http_response_code(403);
                 load_view('auth/login', ['error' => 'Verify your email address before signing in.']);
                 return;
             }
-            table_connect('auth_users')->where('id', $user['id'])->update(['failed_attempts' => 0, 'locked_until' => null]);
             Security::regenerateSession();
             session('auth_user_id', (int) $user['id']);
-            session('auth_login_limit', null);
             redirect('auth/account');
         }
 
-        $limit['count']++;
-        session('auth_login_limit', $limit);
-        if (is_array($user) && !$locked) {
-            $failures = (int) ($user['failed_attempts'] ?? 0) + 1;
-            table_connect('auth_users')->where('id', $user['id'])->update([
-                'failed_attempts' => $failures,
-                'locked_until' => $failures >= 5 ? date('Y-m-d H:i:s', $now + 900) : null,
-            ]);
-        }
         http_response_code(401);
         load_view('auth/login', ['error' => 'Email or password is incorrect.']);
     }
@@ -160,20 +138,14 @@ final class AuthController
             load_view('auth/forgot-password');
             return;
         }
-        $limit = session('auth_reset_limit');
         $now = time();
-        if (!is_array($limit) || ($limit['until'] ?? 0) <= $now) {
-            $limit = ['count' => 0, 'until' => $now + 3600];
-        }
-        if (($limit['count'] ?? 0) >= 3) {
+        if (!AuthRateLimiter::hit('reset-ip', AuthRateLimiter::clientIp(), 5, 3600)) {
             http_response_code(429);
             load_view('auth/forgot-password', ['message' => 'If the account exists, a reset link will be sent.']);
             return;
         }
         $email = $request->input('email', '');
         $email = is_string($email) ? strtolower(trim($email)) : '';
-        $limit['count']++;
-        session('auth_reset_limit', $limit);
         if (filter_var($email, FILTER_VALIDATE_EMAIL) !== false && function_exists('send_mail')) {
             $user = table_connect('auth_users')->where('email', $email)->first();
             if (is_array($user)) {
@@ -238,7 +210,6 @@ final class AuthController
             'failed_attempts' => 0,
             'locked_until' => null,
         ]);
-        session('auth_reset_limit', null);
         load_view('auth/login', ['message' => 'Password changed. You can sign in now.']);
     }
 
